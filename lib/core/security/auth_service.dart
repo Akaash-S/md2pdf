@@ -42,10 +42,11 @@ class AuthService {
 
   Future<bool> authenticateWithBiometric() async {
     try {
+      await Future.delayed(const Duration(milliseconds: 200));
       return await _localAuth.authenticate(
         localizedReason: 'Authenticate to access MD to PDF',
         options: const AuthenticationOptions(
-          stickyAuth: true,
+          stickyAuth: false,
           biometricOnly: true,
           useErrorDialogs: true,
         ),

@@ -1,145 +1,226 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:markdown/markdown.dart' as md;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import '../../models/app_settings.dart';
 
 class MarkdownConverter {
   static final MarkdownConverter _instance = MarkdownConverter._internal();
   factory MarkdownConverter() => _instance;
   MarkdownConverter._internal();
 
-  Future<String> convertToPdf(String mdFilePath) async {
+  pw.Font? _regular, _bold, _italic, _boldItalic, _mono;
+  bool _fontsLoaded = false;
+
+  static const _htmlEntities = {
+    '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'",
+    '&nbsp;': '\u00A0', '&mdash;': '\u2014', '&ndash;': '\u2013',
+    '&hellip;': '\u2026', '&copy;': '\u00A9', '&reg;': '\u00AE',
+    '&trade;': '\u2122', '&bull;': '\u2022', '&middot;': '\u00B7',
+    '&raquo;': '\u00BB', '&laquo;': '\u00AB', '&lsquo;': '\u2018',
+    '&rsquo;': '\u2019', '&ldquo;': '\u201C', '&rdquo;': '\u201D',
+    '&deg;': '\u00B0', '&plusmn;': '\u00B1', '&times;': '\u00D7',
+    '&divide;': '\u00F7', '&sect;': '\u00A7', '&para;': '\u00B6',
+    '&brvbar;': '\u00A6', '&cent;': '\u00A2', '&pound;': '\u00A3',
+    '&euro;': '\u20AC', '&yen;': '\u00A5', '&iexcl;': '\u00A1',
+    '&iquest;': '\u00BF',
+    '&sup1;': '\u00B9', '&sup2;': '\u00B2', '&sup3;': '\u00B3',
+    '&frac14;': '\u00BC', '&frac12;': '\u00BD', '&frac34;': '\u00BE',
+    '&micro;': '\u00B5', '&not;': '\u00AC', '&shy;': '\u00AD',
+    '&ordf;': '\u00AA', '&ordm;': '\u00BA', '&macr;': '\u00AF',
+    '&acute;': '\u00B4', '&cedil;': '\u00B8', '&uml;': '\u00A8',
+    '&circ;': '\u02C6', '&tilde;': '\u02DC', '&ensp;': '\u2002',
+    '&emsp;': '\u2003', '&thinsp;': '\u2009', '&zwnj;': '\u200C',
+    '&zwj;': '\u200D', '&lrm;': '\u200E', '&rlm;': '\u200F',
+    '&larr;': '\u2190', '&uarr;': '\u2191', '&rarr;': '\u2192',
+    '&darr;': '\u2193', '&harr;': '\u2194', '&crarr;': '\u21B5',
+    '&lArr;': '\u21D0', '&uArr;': '\u21D1', '&rArr;': '\u21D2',
+    '&dArr;': '\u21D3', '&hArr;': '\u21D4', '&spades;': '\u2660',
+    '&clubs;': '\u2663', '&hearts;': '\u2665', '&diams;': '\u2666',
+  };
+
+  String _unescapeHtml(String text) {
+    if (!text.contains('&')) return text;
+    text = text.replaceAllMapped(RegExp(r'&#(\d+);'), (m) {
+      final code = int.tryParse(m[1]!);
+      return (code != null && code > 0) ? String.fromCharCode(code) : m[0]!;
+    });
+    text = text.replaceAllMapped(RegExp(r'&#[xX]([0-9a-fA-F]+);'), (m) {
+      final code = int.tryParse(m[1]!, radix: 16);
+      return (code != null && code > 0) ? String.fromCharCode(code) : m[0]!;
+    });
+    return text.replaceAllMapped(RegExp(r'&(\w+);'), (m) {
+      return _htmlEntities[m[0]!] ?? m[0]!;
+    });
+  }
+
+  Future<void> _ensureFonts() async {
+    if (_fontsLoaded) return;
+    final regularData = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
+    final boldData = await rootBundle.load('assets/fonts/NotoSans-Bold.ttf');
+    final italicData = await rootBundle.load('assets/fonts/NotoSans-Italic.ttf');
+    final boldItalicData = await rootBundle.load('assets/fonts/NotoSans-BoldItalic.ttf');
+    final monoData = await rootBundle.load('assets/fonts/NotoSansMono-Regular.ttf');
+    _regular = pw.Font.ttf(regularData);
+    _bold = pw.Font.ttf(boldData);
+    _italic = pw.Font.ttf(italicData);
+    _boldItalic = pw.Font.ttf(boldItalicData);
+    _mono = pw.Font.ttf(monoData);
+    _fontsLoaded = true;
+  }
+
+  Future<String> convertToPdf(
+    String mdFilePath, {
+    AppSettings settings = const AppSettings(),
+  }) async {
     final mdFile = File(mdFilePath);
     if (!await mdFile.exists()) throw Exception('Markdown file not found');
     final markdownContent = await mdFile.readAsString();
-
-    final nodes = md.Document(
+    final ast = md.Document(
       extensionSet: md.ExtensionSet.gitHubFlavored,
-    ).parseLines(markdownContent.split('\n'));
+      encodeHtml: false,
+    ).parseLines(_unescapeHtml(markdownContent).split('\n'));
+    await _ensureFonts();
 
-    print('DEBUG: loading fonts...');
-    ByteData regularData, boldData, italicData, boldItalicData, fallbackData;
-    try {
-      regularData = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
-      boldData = await rootBundle.load('assets/fonts/NotoSans-Bold.ttf');
-      italicData = await rootBundle.load('assets/fonts/NotoSans-Italic.ttf');
-      boldItalicData = await rootBundle.load('assets/fonts/NotoSans-BoldItalic.ttf');
-      fallbackData = await rootBundle.load('assets/fonts/NotoSansMono-Regular.ttf');
-      print('DEBUG: all fonts loaded OK');
-    } catch (e) {
-      print('DEBUG: FONT LOAD FAILED: $e');
-      rethrow;
-    }
-    final regularFont = pw.Font.ttf(regularData);
-    final boldFont = pw.Font.ttf(boldData);
-    final italicFont = pw.Font.ttf(italicData);
-    final boldItalicFont = pw.Font.ttf(boldItalicData);
-    final fallbackFont = pw.Font.ttf(fallbackData);
+    final pageFormat = switch (settings.pageSize) {
+      PdfPageSize.a4 => PdfPageFormat.a4,
+      PdfPageSize.letter => PdfPageFormat.letter,
+      PdfPageSize.a3 => PdfPageFormat.a3,
+    };
+
+    final marginMm = settings.marginValue;
+    final margin = PdfPageFormat(
+      pageFormat.width, pageFormat.height,
+      marginAll: marginMm * PdfPageFormat.mm,
+    );
+
+    final baseFontSize = 11.0 * settings.fontScaleValue;
 
     final pdf = pw.Document(
-      author: 'MD to PDF App',
+      author: settings.pdfAuthorName.isEmpty
+          ? 'MD to PDF'
+          : settings.pdfAuthorName,
       creator: 'MD to PDF',
       title: p.basenameWithoutExtension(mdFilePath),
     );
-
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(40),
+        pageFormat: margin,
         theme: pw.ThemeData.withFont(
-          base: regularFont,
-          bold: boldFont,
-          italic: italicFont,
-          boldItalic: boldItalicFont,
-          fontFallback: [fallbackFont, regularFont, boldFont],
+          base: _regular!,
+          bold: _bold!,
+          italic: _italic!,
+          boldItalic: _boldItalic!,
+          fontFallback: [_mono!, _regular!, _bold!],
         ),
-        build: (context) => _buildPdfWidgets(nodes, markdownContent),
+        header: settings.showHeader ? _header(mdFilePath) : null,
+        footer: (context) => settings.showFooter
+            ? pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 16),
+                child: pw.Container(height: 2, color: PdfColors.black),
+              )
+            : pw.SizedBox(),
+        build: (context) => [
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 40),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: _buildBlocks(ast, baseFontSize),
+            ),
+          ),
+        ],
       ),
     );
-
     final outputDir = await _getOutputDirectory();
-    final fileName =
-        '${p.basenameWithoutExtension(mdFilePath)}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final fileName = '${p.basenameWithoutExtension(mdFilePath)}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final outputPath = p.join(outputDir, fileName);
-
     final outputFile = File(outputPath);
-    await outputFile.writeAsBytes(await pdf.save());
-
+    final bytes = await pdf.save();
+    await outputFile.writeAsBytes(bytes);
     return outputPath;
   }
 
-  List<pw.Widget> _buildPdfWidgets(
-      List<md.Node> nodes, String rawMarkdown) {
+  pw.Widget Function(pw.Context) _header(String mdFilePath) =>
+      (ctx) => pw.Container(
+            margin: const pw.EdgeInsets.only(bottom: 10),
+            padding: const pw.EdgeInsets.only(bottom: 6),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(
+                  bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(p.basenameWithoutExtension(mdFilePath),
+                    style: pw.TextStyle(
+                        fontSize: 9, color: PdfColors.grey600)),
+                pw.Text(DateTime.now().toString().substring(0, 10),
+                    style: pw.TextStyle(
+                        fontSize: 9, color: PdfColors.grey600)),
+              ],
+            ),
+          );
+
+  List<pw.Widget> _buildBlocks(List<md.Node> nodes, double baseFontSize) {
     final widgets = <pw.Widget>[];
-    final lines = rawMarkdown.split('\n');
-
-    for (final line in lines) {
-      final trimmed = line.trim();
-
-      if (trimmed.isEmpty) {
-        widgets.add(pw.SizedBox(height: 8));
-        continue;
-      }
-
-      if (trimmed.startsWith('# ')) {
-        widgets.add(_buildHeading(trimmed.substring(2), 1));
-      } else if (trimmed.startsWith('## ')) {
-        widgets.add(_buildHeading(trimmed.substring(3), 2));
-      } else if (trimmed.startsWith('### ')) {
-        widgets.add(_buildHeading(trimmed.substring(4), 3));
-      } else if (trimmed.startsWith('#### ')) {
-        widgets.add(_buildHeading(trimmed.substring(5), 4));
-      } else if (trimmed == '---' || trimmed == '***' || trimmed == '___') {
-        widgets.add(pw.Divider(color: PdfColors.grey400));
-        widgets.add(pw.SizedBox(height: 4));
-      } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        final text = trimmed.startsWith('- ')
-            ? trimmed.substring(2)
-            : trimmed.substring(2);
-        widgets.add(_buildBullet(text));
-      } else if (RegExp(r'^\d+\. ').hasMatch(trimmed)) {
-        final text = trimmed.replaceFirst(RegExp(r'^\d+\. '), '');
-        widgets.add(_buildNumbered(text, widgets.length + 1));
-      } else if (trimmed.startsWith('> ')) {
-        widgets.add(_buildBlockquote(trimmed.substring(2)));
-      } else if (trimmed.startsWith('```')) {
-      } else {
-        widgets.add(_buildParagraph(trimmed));
+    for (final node in nodes) {
+      if (node is md.Element) {
+        switch (node.tag) {
+          case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6':
+            widgets.add(_buildHeading(node, int.parse(node.tag.substring(1)), baseFontSize));
+            break;
+          case 'p':
+            widgets.add(_buildParagraph(node, baseFontSize));
+            break;
+          case 'ul':
+            widgets.addAll(_buildList(node, ordered: false, base: baseFontSize));
+            break;
+          case 'ol':
+            widgets.addAll(_buildList(node, ordered: true, base: baseFontSize));
+            break;
+          case 'blockquote':
+            widgets.add(_buildBlockquote(node, baseFontSize));
+            break;
+          case 'pre':
+            widgets.add(_buildCodeBlock(node, baseFontSize));
+            break;
+          case 'table':
+            widgets.add(_buildTable(node, baseFontSize));
+            break;
+          case 'hr': case 'hrule':
+            widgets.add(pw.Divider(color: PdfColors.grey400));
+            widgets.add(pw.SizedBox(height: 4));
+            break;
+        }
       }
     }
-
     return widgets;
   }
 
-  pw.Widget _buildHeading(String text, int level) {
-    final sizes = {1: 24.0, 2: 20.0, 3: 16.0, 4: 14.0};
+  pw.Widget _buildHeading(md.Element elem, int level, double base) {
+    final sizes = {1: base * 2.2, 2: base * 1.7, 3: base * 1.35, 4: base * 1.15, 5: base * 1.0, 6: base * 0.9};
     final colors = {
-      1: PdfColors.deepPurple700,
-      2: PdfColors.deepPurple500,
-      3: PdfColors.deepPurple300,
-      4: PdfColors.grey800,
+      1: PdfColors.deepPurple700, 2: PdfColors.deepPurple500,
+      3: PdfColors.deepPurple300, 4: PdfColors.grey800,
+      5: PdfColors.grey700, 6: PdfColors.grey600,
     };
+    final style = pw.TextStyle(
+      fontSize: sizes[level] ?? base,
+      fontWeight: pw.FontWeight.bold,
+      color: colors[level] ?? PdfColors.black,
+    );
     return pw.Padding(
       padding: pw.EdgeInsets.only(top: level <= 2 ? 16 : 10, bottom: 6),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(
-            text,
-        style: pw.TextStyle(
-              fontSize: sizes[level] ?? 14,
-              fontWeight: pw.FontWeight.bold,
-              color: colors[level] ?? PdfColors.black,
-            ),
-          ),
+          _buildInlineWidget(elem.children ?? [], style),
           if (level <= 2)
             pw.Container(
-              height: 2,
-              color: colors[level] ?? PdfColors.grey,
+              height: 2, color: colors[level] ?? PdfColors.grey,
               margin: const pw.EdgeInsets.only(top: 4),
             ),
         ],
@@ -147,51 +228,62 @@ class MarkdownConverter {
     );
   }
 
-  pw.Widget _buildParagraph(String text) {
+  pw.Widget _buildParagraph(md.Element elem, double base) {
+    final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.25);
     return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 6),
-      child: pw.Text(
-        text,
-        style: const pw.TextStyle(fontSize: 11, lineSpacing: 2),
-      ),
+      padding: pw.EdgeInsets.only(bottom: 6),
+      child: _buildInlineWidget(elem.children ?? [], style),
     );
   }
 
-  pw.Widget _buildBullet(String text) {
+  List<pw.Widget> _buildList(md.Element elem, {required bool ordered, required double base}) {
+    final widgets = <pw.Widget>[];
+    int counter = 1;
+    for (final child in elem.children ?? []) {
+      if (child is md.Element && child.tag == 'li') {
+        widgets.add(_buildListItem(child, ordered ? '$counter. ' : '\u2022 ', ordered, base));
+        counter++;
+      }
+    }
+    return widgets;
+  }
+
+  pw.Widget _buildListItem(md.Element li, String prefix, bool ordered, double base) {
+    final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.25);
+    List<md.Node> content = [];
+    for (final child in li.children ?? []) {
+      if (child is md.Element && child.tag == 'p') {
+        content = child.children ?? [];
+        return pw.Padding(
+          padding: pw.EdgeInsets.only(left: 16, bottom: 4),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(prefix, style: style),
+              pw.Expanded(child: _buildInlineWidget(content, style)),
+            ],
+          ),
+        );
+      }
+    }
     return pw.Padding(
-      padding: const pw.EdgeInsets.only(left: 16, bottom: 4),
+      padding: pw.EdgeInsets.only(left: 16, bottom: 4),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text('• ', style: const pw.TextStyle(fontSize: 11)),
-          pw.Expanded(
-            child: pw.Text(text,
-                style: const pw.TextStyle(fontSize: 11, lineSpacing: 2)),
-          ),
+          pw.Text(prefix, style: style),
+          pw.Expanded(child: pw.Text(_textContent(li.children ?? []), style: style)),
         ],
       ),
     );
   }
 
-  pw.Widget _buildNumbered(String text, int number) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.only(left: 16, bottom: 4),
-      child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text('$number. ', style: const pw.TextStyle(fontSize: 11)),
-          pw.Expanded(
-            child: pw.Text(text,
-                style: const pw.TextStyle(fontSize: 11, lineSpacing: 2)),
-          ),
-        ],
-      ),
+  pw.Widget _buildBlockquote(md.Element elem, double base) {
+    final style = pw.TextStyle(
+      fontSize: base, fontStyle: pw.FontStyle.italic, color: PdfColors.grey700,
     );
-  }
-
-  pw.Widget _buildBlockquote(String text) {
     return pw.Container(
-      margin: const pw.EdgeInsets.symmetric(vertical: 6),
+      margin: pw.EdgeInsets.symmetric(vertical: 6),
       padding: const pw.EdgeInsets.all(10),
       decoration: const pw.BoxDecoration(
         border: pw.Border(
@@ -199,26 +291,137 @@ class MarkdownConverter {
         ),
         color: PdfColors.grey100,
       ),
+      child: _buildInlineWidget(elem.children ?? [], style),
+    );
+  }
+
+  pw.Widget _buildCodeBlock(md.Element elem, double base) {
+    final text = _textContent(elem.children ?? []);
+    return pw.Container(
+      margin: pw.EdgeInsets.symmetric(vertical: 8),
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey100,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+      ),
       child: pw.Text(
         text,
-        style: const pw.TextStyle(
-          fontSize: 11,
-          fontStyle: pw.FontStyle.italic,
-          color: PdfColors.grey700,
-        ),
+        style: pw.TextStyle(fontSize: base * 0.85, font: _mono, lineSpacing: base * 0.25),
       ),
     );
   }
 
-  Future<String> _getOutputDirectory() async {
-    Directory dir;
-    if (Platform.isAndroid) {
-      dir = await getApplicationDocumentsDirectory();
-    } else if (Platform.isIOS) {
-      dir = await getApplicationDocumentsDirectory();
-    } else {
-      dir = await getApplicationDocumentsDirectory();
+  pw.Widget _buildTable(md.Element elem, double base) {
+    final rows = <pw.TableRow>[];
+    bool firstRow = true;
+    void addRow(md.Element tr) {
+      final cells = <md.Element>[];
+      for (final cell in tr.children ?? []) {
+        if (cell is md.Element && (cell.tag == 'th' || cell.tag == 'td')) {
+          cells.add(cell);
+        }
+      }
+      if (cells.isEmpty) return;
+      final cellStyle = pw.TextStyle(
+        fontSize: base * 0.9,
+        fontWeight: firstRow ? pw.FontWeight.bold : pw.FontWeight.normal,
+      );
+      rows.add(pw.TableRow(
+        children: cells.map((c) => pw.Padding(
+          padding: const pw.EdgeInsets.all(6),
+          child: _buildInlineWidget(c.children ?? [], cellStyle),
+        )).toList(),
+      ));
+      firstRow = false;
     }
+    for (final child in elem.children ?? []) {
+      if (child is md.Element) {
+        if (child.tag == 'thead' || child.tag == 'tbody') {
+          for (final row in child.children ?? []) {
+            if (row is md.Element && row.tag == 'tr') addRow(row);
+          }
+        } else if (child.tag == 'tr') {
+          addRow(child);
+        }
+      }
+    }
+    if (rows.isEmpty) return pw.SizedBox();
+    return pw.Container(
+      margin: pw.EdgeInsets.symmetric(vertical: 8),
+      child: pw.Table(
+        border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+        children: rows,
+      ),
+    );
+  }
+
+  pw.Widget _buildInlineWidget(List<md.Node> nodes, pw.TextStyle baseStyle) {
+    if (nodes.isEmpty) return pw.Text('', style: baseStyle);
+    for (final node in nodes) {
+      if (node is md.Element) {
+        return pw.RichText(text: _buildInlineSpans(nodes, baseStyle));
+      }
+    }
+    return pw.Text(_textContent(nodes), style: baseStyle);
+  }
+
+  pw.TextSpan _buildInlineSpans(List<md.Node> nodes, pw.TextStyle baseStyle) {
+    final spans = <pw.InlineSpan>[];
+    for (final node in nodes) {
+      if (node is md.Text) {
+        if (node.text.isNotEmpty) {
+          spans.add(pw.TextSpan(text: _unescapeHtml(node.text), style: baseStyle));
+        }
+      } else if (node is md.Element) {
+        switch (node.tag) {
+          case 'strong':
+            spans.add(_buildInlineSpans(node.children ?? [],
+                baseStyle.copyWith(fontWeight: pw.FontWeight.bold)));
+            break;
+          case 'em':
+            spans.add(_buildInlineSpans(node.children ?? [],
+                baseStyle.copyWith(fontStyle: pw.FontStyle.italic)));
+            break;
+          case 'code':
+            spans.add(pw.TextSpan(
+              text: _textContent(node.children ?? []),
+              style: baseStyle.copyWith(font: _mono, fontSize: baseStyle.fontSize! * 0.9),
+            ));
+            break;
+          case 'del':
+            spans.add(_buildInlineSpans(node.children ?? [], baseStyle));
+            break;
+          case 'a':
+            spans.add(pw.TextSpan(
+              text: _textContent(node.children ?? []),
+              style: baseStyle.copyWith(color: PdfColors.blue),
+            ));
+            break;
+          default:
+            final child = _buildInlineSpans(node.children ?? [], baseStyle);
+            if (child.children != null) spans.addAll(child.children!);
+            else if (child.text != null && child.text!.isNotEmpty) spans.add(child);
+        }
+      }
+    }
+    if (spans.length == 1 && spans[0] is pw.TextSpan) {
+      final ts = spans[0] as pw.TextSpan;
+      if (ts.children == null || ts.children!.isEmpty) return ts;
+    }
+    return pw.TextSpan(children: spans);
+  }
+
+  String _textContent(List<md.Node> nodes) {
+    final buf = StringBuffer();
+    for (final node in nodes) {
+      if (node is md.Text) buf.write(node.text);
+      else if (node is md.Element) buf.write(_textContent(node.children ?? []));
+    }
+    return _unescapeHtml(buf.toString());
+  }
+
+  Future<String> _getOutputDirectory() async {
+    final dir = await getApplicationDocumentsDirectory();
     final outputDir = Directory(p.join(dir.path, 'md_to_pdf_outputs'));
     if (!await outputDir.exists()) await outputDir.create(recursive: true);
     return outputDir.path;

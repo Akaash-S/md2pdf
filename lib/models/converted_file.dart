@@ -40,4 +40,14 @@ class ConvertedFile {
     }
     return '${(fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
+
+  ConvertedFile copyWith({String? fileName, String? pdfPath, int? fileSizeBytes}) =>
+      ConvertedFile(
+        id: id,
+        originalMdPath: originalMdPath,
+        pdfPath: pdfPath ?? this.pdfPath,
+        fileName: fileName ?? this.fileName,
+        convertedAt: convertedAt,
+        fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+      );
 }

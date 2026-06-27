@@ -7,7 +7,6 @@ import '../../core/security/secure_storage_service.dart';
 import '../../models/converted_file.dart';
 import '../converter/converter_screen.dart';
 import '../viewer/pdf_viewer_screen.dart';
-import '../settings/settings_screen.dart';
 import '../../widgets/file_card.dart';
 import '../../app.dart';
 
@@ -36,6 +35,11 @@ class HistoryNotifier extends StateNotifier<List<ConvertedFile>> {
     state = state.where((f) => f.id != id).toList();
   }
 
+  Future<void> rename(String id, String newName) async {
+    await _storage.updateFileName(id, newName);
+    state = state.map((f) => f.id == id ? f.copyWith(fileName: newName) : f).toList();
+  }
+
   Future<void> clear() async {
     await _storage.clearHistory();
     state = [];
@@ -51,6 +55,10 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Image.asset('assets/md2pdf.png', fit: BoxFit.contain),
+        ),
         title: const Text('MD to PDF'),
         actions: [
           if (history.isNotEmpty)
@@ -59,11 +67,6 @@ class HomeScreen extends ConsumerWidget {
               icon: const Icon(Icons.delete_outline),
               onPressed: () => _confirmClear(context, ref),
             ),
-          IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => _openSettings(context),
-          ),
           IconButton(
             tooltip: 'Lock app',
             icon: const Icon(Icons.lock_outline),
@@ -122,6 +125,7 @@ class HomeScreen extends ConsumerWidget {
           onTap: () => _openViewer(context, file),
           onShare: () => _shareFile(context, file),
           onDelete: () => ref.read(historyProvider.notifier).remove(file.id),
+          onRename: () => _renameFile(context, ref, file),
         ).animate().fadeIn(delay: (i * 50).ms).slideY(begin: 0.1);
       },
     );
@@ -154,13 +158,6 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _openSettings(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const SettingsScreen()),
-    );
-  }
-
   Future<void> _shareFile(BuildContext context, ConvertedFile file) async {
     if (!File(file.pdfPath).existsSync()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -179,6 +176,36 @@ class HomeScreen extends ConsumerWidget {
           SnackBar(content: Text('Share failed: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _renameFile(BuildContext context, WidgetRef ref, ConvertedFile file) async {
+    final controller = TextEditingController(text: file.fileName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename File'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'File name',
+            hintText: 'Enter new name',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Rename')),
+        ],
+      ),
+    );
+    if (newName != null && newName.isNotEmpty && context.mounted) {
+      ref.read(historyProvider.notifier).rename(file.id, newName);
     }
   }
 

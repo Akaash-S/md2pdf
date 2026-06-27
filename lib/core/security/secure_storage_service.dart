@@ -45,6 +45,16 @@ class SecureStorageService {
         value: jsonEncode(history.map((e) => e.toJson()).toList()));
   }
 
+  Future<void> updateFileName(String id, String newName) async {
+    final history = await getHistory();
+    final idx = history.indexWhere((f) => f.id == id);
+    if (idx == -1) return;
+    history[idx] = history[idx].copyWith(fileName: newName);
+    await _storage.write(
+        key: _historyKey,
+        value: jsonEncode(history.map((e) => e.toJson()).toList()));
+  }
+
   Future<void> clearHistory() async {
     await _storage.delete(key: _historyKey);
   }

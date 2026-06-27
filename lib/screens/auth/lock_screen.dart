@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/security/auth_service.dart';
+import '../../providers/settings_provider.dart';
 import '../../app.dart';
 
 class LockScreen extends ConsumerStatefulWidget {
@@ -17,6 +17,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   String _pin = '';
   String? _errorText;
   bool _biometricAvailable = false;
+  bool _showPinInput = false;
   Duration? _lockoutRemaining;
 
   @override
@@ -28,22 +29,24 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   Future<void> _init() async {
     final biometricAvailable = await _authService.isBiometricAvailable();
     final lockout = await _authService.getLockoutRemaining();
-    final prefs = await SharedPreferences.getInstance();
-    final biometricEnabled = prefs.getBool('biometric_enabled') ?? true;
     if (!mounted) return;
     setState(() {
       _biometricAvailable = biometricAvailable;
       _lockoutRemaining = lockout;
+      if (!biometricAvailable || lockout != null) _showPinInput = true;
     });
-    if (biometricAvailable && biometricEnabled && lockout == null) {
-      _tryBiometric();
-    }
   }
 
   Future<void> _tryBiometric() async {
     final success = await _authService.authenticateWithBiometric();
-    if (success && mounted) {
+    if (!mounted) return;
+    if (success) {
       ref.read(isAuthenticatedProvider.notifier).state = true;
+    } else {
+      setState(() {
+        _errorText = 'Biometric failed or was cancelled. Use PIN instead.';
+        _showPinInput = true;
+      });
     }
   }
 
@@ -95,6 +98,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final biometricEnabled = ref.watch(biometricEnabledProvider);
+    final showBiometric = _biometricAvailable && biometricEnabled;
 
     return Scaffold(
       body: SafeArea(
@@ -126,7 +131,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
               Text(
                 _lockoutRemaining != null
                     ? 'App locked due to too many attempts'
-                    : 'Enter your PIN to continue',
+                    : _showPinInput
+                        ? 'Enter your PIN to continue'
+                        : 'Choose how to unlock',
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
@@ -135,22 +142,64 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
               const SizedBox(height: 40),
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(6, (i) {
-                  final filled = i < _pin.length;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: filled ? scheme.primary : Colors.grey.shade300,
-                    ),
-                  );
-                }),
-              ),
+              if (_showPinInput) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(6, (i) {
+                    final filled = i < _pin.length;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: filled ? scheme.primary : Colors.grey.shade300,
+                      ),
+                    );
+                  }),
+                ),
+              ] else ...[
+                if (showBiometric)
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton.icon(
+                          onPressed: _tryBiometric,
+                          icon: const Icon(Icons.fingerprint, size: 28),
+                          label: const Text('Use Fingerprint',
+                              style: TextStyle(fontSize: 16)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: scheme.primary,
+                            foregroundColor: scheme.onPrimary,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: OutlinedButton.icon(
+                          onPressed: () => setState(() {
+                            _showPinInput = true;
+                            _errorText = null;
+                          }),
+                          icon: const Icon(Icons.pin_outlined, size: 24),
+                          label: const Text('Use PIN',
+                              style: TextStyle(fontSize: 16)),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
 
               if (_errorText != null) ...[
                 const SizedBox(height: 16),
@@ -161,14 +210,20 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
               const Spacer(),
 
-              if (_lockoutRemaining == null) _buildNumpad(),
+              if (_showPinInput && _lockoutRemaining == null) _buildNumpad(),
 
-              if (_biometricAvailable && _lockoutRemaining == null) ...[
-                const SizedBox(height: 16),
+              if (_showPinInput && showBiometric && _lockoutRemaining == null) ...[
+                const SizedBox(height: 12),
                 TextButton.icon(
-                  onPressed: _tryBiometric,
-                  icon: const Icon(Icons.fingerprint),
-                  label: const Text('Use Biometric'),
+                  onPressed: () {
+                    setState(() {
+                      _showPinInput = false;
+                      _errorText = null;
+                      _pin = '';
+                    });
+                  },
+                  icon: const Icon(Icons.fingerprint, size: 18),
+                  label: const Text('Use Fingerprint instead'),
                 ),
               ],
               const SizedBox(height: 16),

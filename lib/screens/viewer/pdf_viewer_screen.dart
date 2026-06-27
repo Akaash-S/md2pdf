@@ -56,10 +56,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
       appBar: _appBarsVisible
           ? AppBar(
-              backgroundColor: Colors.black.withValues(alpha: 0.7),
+              backgroundColor: Colors.black,
               iconTheme: const IconThemeData(color: Colors.white),
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,11 +111,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
               filePath: widget.file.pdfPath,
               enableSwipe: true,
               swipeHorizontal: false,
-              autoSpacing: true,
+              autoSpacing: false,
               pageFling: true,
-              pageSnap: false,
+              pageSnap: true,
               fitEachPage: true,
-              fitPolicy: FitPolicy.BOTH,
+              fitPolicy: FitPolicy.WIDTH,
               onRender: (pages) => setState(() {
                 _totalPages = pages ?? 0;
                 _isLoaded = true;

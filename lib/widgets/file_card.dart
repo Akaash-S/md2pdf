@@ -8,6 +8,7 @@ class FileCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onShare;
   final VoidCallback onDelete;
+  final VoidCallback onRename;
 
   const FileCard({
     super.key,
@@ -15,6 +16,7 @@ class FileCard extends StatelessWidget {
     required this.onTap,
     required this.onShare,
     required this.onDelete,
+    required this.onRename,
   });
 
   @override
@@ -60,9 +62,14 @@ class FileCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${DateFormat('MMM dd, yyyy').format(file.convertedAt)} · ${file.formattedSize}',
+                      DateFormat('MMM dd, yyyy').format(file.convertedAt),
                       style: TextStyle(
                           fontSize: 12, color: Colors.grey.shade500),
+                    ),
+                    Text(
+                      file.formattedSize,
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey.shade400),
                     ),
                     if (!exists)
                       Text('File not found',
@@ -77,11 +84,23 @@ class FileCard extends StatelessWidget {
                   color: Colors.grey,
                   tooltip: 'Share PDF',
                   onPressed: onShare,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 ),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 20),
+                color: Colors.grey,
+                tooltip: 'Rename',
+                onPressed: onRename,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
                 color: Colors.grey,
                 onPressed: () => _confirmDelete(context),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
               Icon(Icons.chevron_right, color: Colors.grey.shade400),
             ],
