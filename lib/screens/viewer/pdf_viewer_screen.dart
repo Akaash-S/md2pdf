@@ -1,0 +1,147 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:intl/intl.dart';
+import '../../models/converted_file.dart';
+
+class PdfViewerScreen extends StatefulWidget {
+  final ConvertedFile file;
+  const PdfViewerScreen({super.key, required this.file});
+
+  @override
+  State<PdfViewerScreen> createState() => _PdfViewerScreenState();
+}
+
+class _PdfViewerScreenState extends State<PdfViewerScreen> {
+  int _totalPages = 0;
+  int _currentPage = 0;
+  bool _isLoaded = false;
+  bool _appBarsVisible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  void _toggleBars() {
+    setState(() => _appBarsVisible = !_appBarsVisible);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: _appBarsVisible
+          ? AppBar(
+              backgroundColor: Colors.black.withValues(alpha: 0.7),
+              iconTheme: const IconThemeData(color: Colors.white),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.file.fileName,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    DateFormat('MMM dd, yyyy · HH:mm')
+                        .format(widget.file.convertedAt),
+                    style: const TextStyle(color: Colors.white60, fontSize: 11),
+                  ),
+                ],
+              ),
+              actions: [
+                Container(
+                  margin: const EdgeInsets.only(right: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade700,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock, size: 12, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text('READ ONLY',
+                          style:
+                              TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : null,
+      body: GestureDetector(
+        onTap: _toggleBars,
+        child: Stack(
+          children: [
+            PDFView(
+              filePath: widget.file.pdfPath,
+              enableSwipe: true,
+              swipeHorizontal: false,
+              autoSpacing: true,
+              pageFling: true,
+              pageSnap: false,
+              fitEachPage: true,
+              fitPolicy: FitPolicy.BOTH,
+              onRender: (pages) => setState(() {
+                _totalPages = pages ?? 0;
+                _isLoaded = true;
+              }),
+              onPageChanged: (page, total) => setState(() {
+                _currentPage = (page ?? 0) + 1;
+              }),
+              onViewCreated: (controller) {
+              },
+              onError: (error) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $error')),
+                );
+              },
+            ),
+
+            if (!_isLoaded)
+              Center(
+                child: CircularProgressIndicator(color: scheme.primary),
+              ),
+
+            if (_isLoaded && _appBarsVisible)
+              Positioned(
+                bottom: 24,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$_currentPage / $_totalPages',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
