@@ -16,7 +16,9 @@ class AppTheme {
         surface: Color(0xFFF8F9FF),
         onSurface: Color(0xFF1A1A2E),
       ),
-      textTheme: GoogleFonts.interTextTheme(),
+      textTheme: GoogleFonts.interTextTheme().apply(
+        fontFamilyFallback: ['Roboto', 'Noto Sans', 'sans-serif'],
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -63,7 +65,9 @@ class AppTheme {
         surface: Color(0xFF1A1A2E),
         onSurface: Color(0xFFF0F0FF),
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).apply(
+        fontFamilyFallback: ['Roboto', 'Noto Sans', 'sans-serif'],
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
