@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../models/converted_file.dart';
 
 class PdfViewerScreen extends StatefulWidget {
@@ -21,17 +22,33 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    });
   }
 
   @override
   void dispose() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
   void _toggleBars() {
     setState(() => _appBarsVisible = !_appBarsVisible);
+  }
+
+  Future<void> _sharePdf(BuildContext context) async {
+    try {
+      await Share.shareXFiles(
+        [XFile(widget.file.pdfPath)],
+        text: '${widget.file.fileName}.pdf',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Share failed: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -60,6 +77,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 ],
               ),
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.share, color: Colors.white),
+                  tooltip: 'Share PDF',
+                  onPressed: () => _sharePdf(context),
+                ),
                 Container(
                   margin: const EdgeInsets.only(right: 12),
                   padding:

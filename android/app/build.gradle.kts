@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.yourname.md_to_pdf"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

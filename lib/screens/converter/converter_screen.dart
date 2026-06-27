@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:path/path.dart' as p;
+import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/utils/markdown_converter.dart';
 import '../../models/converted_file.dart';
@@ -68,7 +69,34 @@ class _ConverterScreenState extends State<ConverterScreen> {
         fileSizeBytes: await pdfFile.length(),
       );
 
-      if (mounted) Navigator.pop(context, convertedFile);
+      if (mounted) {
+        final action = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Conversion Complete'),
+            content: Text('${convertedFile.fileName}\n${convertedFile.formattedSize}'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, 'share'),
+                child: const Text('Share'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, 'view'),
+                child: const Text('View PDF'),
+              ),
+            ],
+          ),
+        );
+        if (action == 'share') {
+          try {
+            await Share.shareXFiles(
+              [XFile(pdfPath)],
+              text: convertedFile.fileName,
+            );
+          } catch (_) {}
+        }
+        if (mounted) Navigator.pop(context, convertedFile);
+      }
     } catch (e) {
       setState(() {
         _isConverting = false;

@@ -2,11 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-
+import 'package:share_plus/share_plus.dart';
 import '../../core/security/secure_storage_service.dart';
 import '../../models/converted_file.dart';
 import '../converter/converter_screen.dart';
 import '../viewer/pdf_viewer_screen.dart';
+import '../settings/settings_screen.dart';
 import '../../widgets/file_card.dart';
 import '../../app.dart';
 
@@ -58,6 +59,11 @@ class HomeScreen extends ConsumerWidget {
               icon: const Icon(Icons.delete_outline),
               onPressed: () => _confirmClear(context, ref),
             ),
+          IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => _openSettings(context),
+          ),
           IconButton(
             tooltip: 'Lock app',
             icon: const Icon(Icons.lock_outline),
@@ -114,6 +120,7 @@ class HomeScreen extends ConsumerWidget {
         return FileCard(
           file: file,
           onTap: () => _openViewer(context, file),
+          onShare: () => _shareFile(context, file),
           onDelete: () => ref.read(historyProvider.notifier).remove(file.id),
         ).animate().fadeIn(delay: (i * 50).ms).slideY(begin: 0.1);
       },
@@ -143,6 +150,32 @@ class HomeScreen extends ConsumerWidget {
         builder: (_) => PdfViewerScreen(file: file),
       ),
     );
+  }
+
+  void _openSettings(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    );
+  }
+
+  Future<void> _shareFile(BuildContext context, ConvertedFile file) async {
+    if (!File(file.pdfPath).existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF file not found on device')),
+      );
+      return;
+    }
+    try {
+      await Share.shareXFiles(
+        [XFile(file.pdfPath)],
+        text: '${file.fileName}.pdf',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Share failed: $e')),
+      );
+    }
   }
 
   Future<void> _confirmClear(BuildContext context, WidgetRef ref) async {

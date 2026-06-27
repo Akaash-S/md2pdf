@@ -6,12 +6,14 @@ import '../models/converted_file.dart';
 class FileCard extends StatelessWidget {
   final ConvertedFile file;
   final VoidCallback onTap;
+  final VoidCallback onShare;
   final VoidCallback onDelete;
 
   const FileCard({
     super.key,
     required this.file,
     required this.onTap,
+    required this.onShare,
     required this.onDelete,
   });
 
@@ -69,6 +71,13 @@ class FileCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (exists)
+                IconButton(
+                  icon: const Icon(Icons.share_outlined, size: 20),
+                  color: Colors.grey,
+                  tooltip: 'Share PDF',
+                  onPressed: onShare,
+                ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
                 color: Colors.grey,
