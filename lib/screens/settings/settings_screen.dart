@@ -29,7 +29,7 @@ class SettingsScreen extends StatelessWidget {
         screen: const SecuritySettings(),
       ),
       _SettingsSection(
-        icon: Icons.picture_as_pdf_outlined,
+        icon: Icons.picture_as_pdf_rounded,
         iconColor: const Color(0xFFE53935),
         title: 'PDF Output',
         subtitle: 'Page size, font, margins, header',
@@ -52,27 +52,21 @@ class SettingsScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar.large(
-            automaticallyImplyLeading: false,
-            backgroundColor: scheme.surface,
-            title: const Text('Settings'),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
-            sliver: SliverList.builder(
-              itemCount: sections.length,
-              itemBuilder: (context, i) {
-                final s = sections[i];
-                return _SectionCard(section: s)
-                    .animate()
-                    .fadeIn(delay: (i * 55).ms)
-                    .slideY(begin: 0.07, curve: Curves.easeOutCubic);
-              },
-            ),
-          ),
-        ],
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        centerTitle: true,
+        title: const Text('Settings'),
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        itemCount: sections.length,
+        itemBuilder: (context, i) {
+          final s = sections[i];
+          return _SectionCard(section: s)
+              .animate()
+              .fadeIn(delay: (i * 55).ms)
+              .slideY(begin: 0.07, curve: Curves.easeOutCubic);
+        },
       ),
     );
   }
@@ -102,7 +96,7 @@ class _SectionCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: () => Navigator.push(
           context,
@@ -117,7 +111,7 @@ class _SectionCard extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: section.iconColor.withOpacity(0.12),
+                  color: section.iconColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(section.icon, color: section.iconColor, size: 24),
@@ -128,8 +122,10 @@ class _SectionCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(section.title,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w500)),
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: scheme.onSurface)),
                     const SizedBox(height: 2),
                     Text(section.subtitle,
                         style: TextStyle(

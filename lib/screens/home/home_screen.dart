@@ -59,7 +59,7 @@ class HomeScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(10),
           child: Image.asset('assets/md2pdf.png', fit: BoxFit.contain),
         ),
-        title: const Text('MD to PDF'),
+        title: const Text('Home'),
         actions: [
           if (history.isNotEmpty)
             IconButton(

@@ -15,48 +15,6 @@ class MarkdownConverter {
   pw.Font? _regular, _bold, _italic, _boldItalic, _mono;
   bool _fontsLoaded = false;
 
-  static const _htmlEntities = {
-    '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'",
-    '&nbsp;': '\u00A0', '&mdash;': '\u2014', '&ndash;': '\u2013',
-    '&hellip;': '\u2026', '&copy;': '\u00A9', '&reg;': '\u00AE',
-    '&trade;': '\u2122', '&bull;': '\u2022', '&middot;': '\u00B7',
-    '&raquo;': '\u00BB', '&laquo;': '\u00AB', '&lsquo;': '\u2018',
-    '&rsquo;': '\u2019', '&ldquo;': '\u201C', '&rdquo;': '\u201D',
-    '&deg;': '\u00B0', '&plusmn;': '\u00B1', '&times;': '\u00D7',
-    '&divide;': '\u00F7', '&sect;': '\u00A7', '&para;': '\u00B6',
-    '&brvbar;': '\u00A6', '&cent;': '\u00A2', '&pound;': '\u00A3',
-    '&euro;': '\u20AC', '&yen;': '\u00A5', '&iexcl;': '\u00A1',
-    '&iquest;': '\u00BF',
-    '&sup1;': '\u00B9', '&sup2;': '\u00B2', '&sup3;': '\u00B3',
-    '&frac14;': '\u00BC', '&frac12;': '\u00BD', '&frac34;': '\u00BE',
-    '&micro;': '\u00B5', '&not;': '\u00AC', '&shy;': '\u00AD',
-    '&ordf;': '\u00AA', '&ordm;': '\u00BA', '&macr;': '\u00AF',
-    '&acute;': '\u00B4', '&cedil;': '\u00B8', '&uml;': '\u00A8',
-    '&circ;': '\u02C6', '&tilde;': '\u02DC', '&ensp;': '\u2002',
-    '&emsp;': '\u2003', '&thinsp;': '\u2009', '&zwnj;': '\u200C',
-    '&zwj;': '\u200D', '&lrm;': '\u200E', '&rlm;': '\u200F',
-    '&larr;': '\u2190', '&uarr;': '\u2191', '&rarr;': '\u2192',
-    '&darr;': '\u2193', '&harr;': '\u2194', '&crarr;': '\u21B5',
-    '&lArr;': '\u21D0', '&uArr;': '\u21D1', '&rArr;': '\u21D2',
-    '&dArr;': '\u21D3', '&hArr;': '\u21D4', '&spades;': '\u2660',
-    '&clubs;': '\u2663', '&hearts;': '\u2665', '&diams;': '\u2666',
-  };
-
-  String _unescapeHtml(String text) {
-    if (!text.contains('&')) return text;
-    text = text.replaceAllMapped(RegExp(r'&#(\d+);'), (m) {
-      final code = int.tryParse(m[1]!);
-      return (code != null && code > 0) ? String.fromCharCode(code) : m[0]!;
-    });
-    text = text.replaceAllMapped(RegExp(r'&#[xX]([0-9a-fA-F]+);'), (m) {
-      final code = int.tryParse(m[1]!, radix: 16);
-      return (code != null && code > 0) ? String.fromCharCode(code) : m[0]!;
-    });
-    return text.replaceAllMapped(RegExp(r'&(\w+);'), (m) {
-      return _htmlEntities[m[0]!] ?? m[0]!;
-    });
-  }
-
   Future<void> _ensureFonts() async {
     if (_fontsLoaded) return;
     final regularData = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
@@ -72,6 +30,19 @@ class MarkdownConverter {
     _fontsLoaded = true;
   }
 
+  bool _nodeHasContent(md.Element elem) {
+    final children = elem.children ?? [];
+    if (children.isEmpty) return false;
+    for (final child in children) {
+      if (child is md.Text) {
+        if (child.text.trim().isNotEmpty) return true;
+      } else if (child is md.Element) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   Future<String> convertToPdf(
     String mdFilePath, {
     AppSettings settings = const AppSettings(),
@@ -79,10 +50,11 @@ class MarkdownConverter {
     final mdFile = File(mdFilePath);
     if (!await mdFile.exists()) throw Exception('Markdown file not found');
     final markdownContent = await mdFile.readAsString();
+    final normalized = markdownContent.replaceAll('\r\n', '\n').replaceAll('\r', '');
     final ast = md.Document(
       extensionSet: md.ExtensionSet.gitHubFlavored,
       encodeHtml: false,
-    ).parseLines(_unescapeHtml(markdownContent).split('\n'));
+    ).parseLines(normalized.split('\n'));
     await _ensureFonts();
 
     final pageFormat = switch (settings.pageSize) {
@@ -108,6 +80,7 @@ class MarkdownConverter {
     );
     pdf.addPage(
       pw.MultiPage(
+        maxPages: 500,
         pageFormat: margin,
         theme: pw.ThemeData.withFont(
           base: _regular!,
@@ -117,24 +90,16 @@ class MarkdownConverter {
           fontFallback: [_mono!, _regular!, _bold!],
         ),
         header: settings.showHeader ? _header(mdFilePath) : null,
-        footer: (context) => settings.showFooter
-            ? pw.Padding(
-                padding: const pw.EdgeInsets.only(top: 16),
-                child: pw.Container(height: 2, color: PdfColors.black),
-              )
-            : pw.SizedBox(),
-        build: (context) => [
-          pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 40),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: _buildBlocks(ast, baseFontSize),
-            ),
-          ),
-        ],
+        footer: settings.showFooter
+            ? (context) => pw.Padding(
+                  padding: const pw.EdgeInsets.only(top: 16),
+                  child: pw.Container(height: 2, color: PdfColors.black),
+                )
+            : null,
+        build: (context) => _buildBlocks(ast, baseFontSize),
       ),
     );
-    final outputDir = await _getOutputDirectory();
+    final outputDir = await _getOutputDirectory(settings.customOutputPath);
     final fileName = '${p.basenameWithoutExtension(mdFilePath)}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final outputPath = p.join(outputDir, fileName);
     final outputFile = File(outputPath);
@@ -168,12 +133,15 @@ class MarkdownConverter {
     final widgets = <pw.Widget>[];
     for (final node in nodes) {
       if (node is md.Element) {
+        if (!_nodeHasContent(node)) continue;
         switch (node.tag) {
           case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6':
-            widgets.add(_buildHeading(node, int.parse(node.tag.substring(1)), baseFontSize));
+            final heading = _buildHeading(node, int.parse(node.tag.substring(1)), baseFontSize);
+            if (heading is! pw.SizedBox) widgets.add(heading);
             break;
           case 'p':
             widgets.add(_buildParagraph(node, baseFontSize));
+            widgets.add(pw.SizedBox(height: 6));
             break;
           case 'ul':
             widgets.addAll(_buildList(node, ordered: false, base: baseFontSize));
@@ -188,7 +156,8 @@ class MarkdownConverter {
             widgets.add(_buildCodeBlock(node, baseFontSize));
             break;
           case 'table':
-            widgets.add(_buildTable(node, baseFontSize));
+            final table = _buildTable(node, baseFontSize);
+            if (table is! pw.SizedBox) widgets.add(table);
             break;
           case 'hr': case 'hrule':
             widgets.add(pw.Divider(color: PdfColors.grey400));
@@ -201,6 +170,7 @@ class MarkdownConverter {
   }
 
   pw.Widget _buildHeading(md.Element elem, int level, double base) {
+    if (!_nodeHasContent(elem)) return pw.SizedBox();
     final sizes = {1: base * 2.2, 2: base * 1.7, 3: base * 1.35, 4: base * 1.15, 5: base * 1.0, 6: base * 0.9};
     final colors = {
       1: PdfColors.deepPurple700, 2: PdfColors.deepPurple500,
@@ -230,10 +200,7 @@ class MarkdownConverter {
 
   pw.Widget _buildParagraph(md.Element elem, double base) {
     final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.25);
-    return pw.Padding(
-      padding: pw.EdgeInsets.only(bottom: 6),
-      child: _buildInlineWidget(elem.children ?? [], style),
-    );
+    return _buildInlineWidget(elem.children ?? [], style);
   }
 
   List<pw.Widget> _buildList(md.Element elem, {required bool ordered, required double base}) {
@@ -260,7 +227,7 @@ class MarkdownConverter {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(prefix, style: style),
-              pw.Expanded(child: _buildInlineWidget(content, style)),
+              pw.Flexible(child: _buildInlineWidget(content, style)),
             ],
           ),
         );
@@ -272,7 +239,7 @@ class MarkdownConverter {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(prefix, style: style),
-          pw.Expanded(child: pw.Text(_textContent(li.children ?? []), style: style)),
+          pw.Flexible(child: pw.Text(_textContent(li.children ?? []), style: style)),
         ],
       ),
     );
@@ -370,7 +337,7 @@ class MarkdownConverter {
     for (final node in nodes) {
       if (node is md.Text) {
         if (node.text.isNotEmpty) {
-          spans.add(pw.TextSpan(text: _unescapeHtml(node.text), style: baseStyle));
+          spans.add(pw.TextSpan(text: node.text, style: baseStyle));
         }
       } else if (node is md.Element) {
         switch (node.tag) {
@@ -417,10 +384,21 @@ class MarkdownConverter {
       if (node is md.Text) buf.write(node.text);
       else if (node is md.Element) buf.write(_textContent(node.children ?? []));
     }
-    return _unescapeHtml(buf.toString());
+    return buf.toString();
   }
 
-  Future<String> _getOutputDirectory() async {
+  Future<String> _getOutputDirectory([String? customPath]) async {
+    if (customPath != null && customPath.isNotEmpty) {
+      try {
+        final dir = Directory(customPath);
+        if (!await dir.exists()) {
+          await dir.create(recursive: true);
+        }
+        return customPath;
+      } catch (_) {
+        // fall through to default
+      }
+    }
     final dir = await getApplicationDocumentsDirectory();
     final outputDir = Directory(p.join(dir.path, 'md_to_pdf_outputs'));
     if (!await outputDir.exists()) await outputDir.create(recursive: true);

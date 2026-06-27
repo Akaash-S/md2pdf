@@ -2,20 +2,22 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/utils/markdown_converter.dart';
 import '../../models/converted_file.dart';
+import '../../providers/settings_provider.dart';
 
-class ConverterScreen extends StatefulWidget {
+class ConverterScreen extends ConsumerStatefulWidget {
   const ConverterScreen({super.key});
 
   @override
-  State<ConverterScreen> createState() => _ConverterScreenState();
+  ConsumerState<ConverterScreen> createState() => _ConverterScreenState();
 }
 
-class _ConverterScreenState extends State<ConverterScreen> {
+class _ConverterScreenState extends ConsumerState<ConverterScreen> {
   final _converter = MarkdownConverter();
   final _uuid = const Uuid();
 
@@ -55,7 +57,11 @@ class _ConverterScreenState extends State<ConverterScreen> {
       await _animateProgress(0.6, 'Generating PDF...');
       await _animateProgress(0.85, 'Saving file...');
 
-      final pdfPath = await _converter.convertToPdf(_selectedMdPath!);
+      final settings = ref.read(settingsProvider);
+      final pdfPath = await _converter.convertToPdf(
+        _selectedMdPath!,
+        settings: settings,
+      );
       final pdfFile = File(pdfPath);
 
       await _animateProgress(1.0, 'Done!');
@@ -132,7 +138,17 @@ class _ConverterScreenState extends State<ConverterScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildFilePickerCard(scheme),
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
+
+            if (_statusText.startsWith('Error:'))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(_statusText,
+                    style: TextStyle(color: scheme.error, fontSize: 13),
+                    textAlign: TextAlign.center),
+              ),
+
+            SizedBox(height: _statusText.startsWith('Error:') ? 8 : 16),
 
             if (_selectedMdPath != null && !_isConverting) ...[
               _buildFilePreview(),

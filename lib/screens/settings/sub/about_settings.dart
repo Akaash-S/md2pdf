@@ -99,24 +99,6 @@ class _AboutSettingsState extends ConsumerState<AboutSettings> {
           ),
           const SizedBox(height: 16),
           SettingsGroupCard(
-            label: 'SECURITY SUMMARY',
-            children: const [
-              _InfoRow(
-                  icon: Icons.lock_rounded,
-                  text: 'PIN-protected with SHA-256 hash'),
-              _InfoRow(
-                  icon: Icons.storage_rounded,
-                  text: 'Data stored in AES-encrypted keystore'),
-              _InfoRow(
-                  icon: Icons.cloud_off_rounded,
-                  text: 'No internet access - fully offline'),
-              _InfoRow(
-                  icon: Icons.no_photography_rounded,
-                  text: 'Screenshot protection (Android)'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SettingsGroupCard(
             label: 'RESET',
             children: [
               ActionSettingTile(
@@ -170,26 +152,5 @@ class _AboutSettingsState extends ConsumerState<AboutSettings> {
         );
       }
     }
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _InfoRow({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: scheme.primary),
-          const SizedBox(width: 12),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
-        ],
-      ),
-    );
   }
 }

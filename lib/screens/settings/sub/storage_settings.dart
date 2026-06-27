@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import '../../../core/security/auth_service.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../screens/home/home_screen.dart';
+import '../../../widgets/pin_pad.dart';
 import '../widgets/settings_widgets.dart';
 
 class StorageSettings extends ConsumerStatefulWidget {
@@ -14,6 +17,7 @@ class StorageSettings extends ConsumerStatefulWidget {
 }
 
 class _StorageSettingsState extends ConsumerState<StorageSettings> {
+  final _auth = AuthService();
   String _outputPath = '';
   String _storageUsed = 'Calculating...';
   int _pdfCount = 0;
@@ -28,10 +32,15 @@ class _StorageSettingsState extends ConsumerState<StorageSettings> {
   Future<void> _loadStorageInfo() async {
     setState(() => _calculating = true);
     try {
-      final base = await getApplicationDocumentsDirectory();
-      final dir = Directory(p.join(base.path, 'md_to_pdf_outputs'));
-      _outputPath = dir.path;
+      final s = ref.read(settingsProvider);
+      if (s.customOutputPath != null && await Directory(s.customOutputPath!).exists()) {
+        _outputPath = s.customOutputPath!;
+      } else {
+        final base = await getApplicationDocumentsDirectory();
+        _outputPath = p.join(base.path, 'md_to_pdf_outputs');
+      }
 
+      final dir = Directory(_outputPath);
       if (await dir.exists()) {
         final files = dir.listSync().whereType<File>().toList();
         int totalBytes = 0;
@@ -48,13 +57,49 @@ class _StorageSettingsState extends ConsumerState<StorageSettings> {
     if (mounted) setState(() => _calculating = false);
   }
 
+  Future<void> _pickOutputFolder() async {
+    final selected = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Select output folder',
+    );
+    if (selected != null && mounted) {
+      final s = ref.read(settingsProvider);
+      await ref.read(settingsProvider.notifier).update(
+          s.copyWith(customOutputPath: selected));
+      await _loadStorageInfo();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Output folder updated')),
+        );
+      }
+    }
+  }
+
   String _formatBytes(int b) {
     if (b < 1024) return '$b B';
     if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(1)} KB';
     return '${(b / (1024 * 1024)).toStringAsFixed(2)} MB';
   }
 
+  Future<bool> _requirePin(BuildContext context) async {
+    final scheme = Theme.of(context).colorScheme;
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => _PinVerifySheet(scheme: scheme, auth: _auth),
+    );
+
+    return result ?? false;
+  }
+
   Future<void> _clearAllPdfs(BuildContext context) async {
+    final verified = await _requirePin(context);
+    if (!verified || !mounted) return;
+
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -79,9 +124,12 @@ class _StorageSettingsState extends ConsumerState<StorageSettings> {
     if (ok != true) return;
 
     try {
-      final base = await getApplicationDocumentsDirectory();
-      final dir = Directory(p.join(base.path, 'md_to_pdf_outputs'));
-      if (await dir.exists()) await dir.delete(recursive: true);
+      final dir = Directory(_outputPath);
+      if (await dir.exists()) {
+        await for (final entity in dir.list()) {
+          await entity.delete(recursive: true);
+        }
+      }
       ref.read(historyProvider.notifier).clear();
       await _loadStorageInfo();
       if (context.mounted) {
@@ -123,8 +171,7 @@ class _StorageSettingsState extends ConsumerState<StorageSettings> {
               child: Row(
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 56, height: 56,
                     decoration: BoxDecoration(
                       color: scheme.primaryContainer,
                       borderRadius: BorderRadius.circular(14),
@@ -143,15 +190,13 @@ class _StorageSettingsState extends ConsumerState<StorageSettings> {
                         const SizedBox(height: 4),
                         if (_calculating)
                           const SizedBox(
-                              height: 12,
-                              width: 60,
+                              height: 12, width: 60,
                               child: LinearProgressIndicator())
                         else
                           Text(
                             '$_storageUsed - $_pdfCount file${_pdfCount != 1 ? 's' : ''}',
                             style: TextStyle(
-                                fontSize: 13,
-                                color: scheme.onSurfaceVariant),
+                                fontSize: 13, color: scheme.onSurfaceVariant),
                           ),
                       ],
                     ),
@@ -174,9 +219,20 @@ class _StorageSettingsState extends ConsumerState<StorageSettings> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Saved to',
-                        style: TextStyle(
-                            fontSize: 12, color: scheme.onSurfaceVariant)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text('Saved to',
+                              style: TextStyle(
+                                  fontSize: 12, color: scheme.onSurfaceVariant)),
+                        ),
+                        TextButton.icon(
+                          onPressed: _pickOutputFolder,
+                          icon: const Icon(Icons.folder_open, size: 16),
+                          label: const Text('Change'),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 6),
                     Container(
                       width: double.infinity,
@@ -229,6 +285,57 @@ class _StorageSettingsState extends ConsumerState<StorageSettings> {
           ),
           const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+}
+
+class _PinVerifySheet extends StatefulWidget {
+  final ColorScheme scheme;
+  final AuthService auth;
+  const _PinVerifySheet({required this.scheme, required this.auth});
+
+  @override
+  State<_PinVerifySheet> createState() => _PinVerifySheetState();
+}
+
+class _PinVerifySheetState extends State<_PinVerifySheet> {
+  String? _error;
+
+  void _onPin(String pin) async {
+    final valid = await widget.auth.verifyPin(pin);
+    if (!mounted) return;
+    if (valid) {
+      Navigator.pop(context, true);
+    } else {
+      setState(() => _error = 'Incorrect PIN');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: widget.scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Icon(Icons.lock_outline, size: 40, color: widget.scheme.primary),
+            const SizedBox(height: 12),
+            Text('Enter PIN to continue',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 24),
+            PinPad(onComplete: _onPin, errorText: _error),
+          ],
+        ),
       ),
     );
   }

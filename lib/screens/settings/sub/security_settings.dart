@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/security/auth_service.dart';
+import '../../../core/platform/screenshot_helper.dart';
 import '../../../models/app_settings.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../widgets/pin_pad.dart';
@@ -110,8 +111,10 @@ class _SecuritySettingsState extends ConsumerState<SecuritySettings> {
                 subtitle:
                     'Prevent screen capture and recent-apps preview (Android)',
                 value: s.screenshotProtection,
-                onChanged: (v) =>
-                    notify.update(s.copyWith(screenshotProtection: v)),
+                onChanged: (v) {
+                  ScreenshotHelper.setProtection(v);
+                  notify.update(s.copyWith(screenshotProtection: v));
+                },
               ),
             ],
           ),
