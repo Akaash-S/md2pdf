@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/security/auth_service.dart';
 import '../../app.dart';
 
@@ -27,12 +28,14 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   Future<void> _init() async {
     final biometricAvailable = await _authService.isBiometricAvailable();
     final lockout = await _authService.getLockoutRemaining();
+    final prefs = await SharedPreferences.getInstance();
+    final biometricEnabled = prefs.getBool('biometric_enabled') ?? true;
     if (!mounted) return;
     setState(() {
       _biometricAvailable = biometricAvailable;
       _lockoutRemaining = lockout;
     });
-    if (biometricAvailable && lockout == null) {
+    if (biometricAvailable && biometricEnabled && lockout == null) {
       _tryBiometric();
     }
   }

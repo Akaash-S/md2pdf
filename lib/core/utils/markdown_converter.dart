@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:markdown/markdown.dart' as md;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -19,6 +21,25 @@ class MarkdownConverter {
       extensionSet: md.ExtensionSet.gitHubFlavored,
     ).parseLines(markdownContent.split('\n'));
 
+    print('DEBUG: loading fonts...');
+    ByteData regularData, boldData, italicData, boldItalicData, fallbackData;
+    try {
+      regularData = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
+      boldData = await rootBundle.load('assets/fonts/NotoSans-Bold.ttf');
+      italicData = await rootBundle.load('assets/fonts/NotoSans-Italic.ttf');
+      boldItalicData = await rootBundle.load('assets/fonts/NotoSans-BoldItalic.ttf');
+      fallbackData = await rootBundle.load('assets/fonts/NotoSansMono-Regular.ttf');
+      print('DEBUG: all fonts loaded OK');
+    } catch (e) {
+      print('DEBUG: FONT LOAD FAILED: $e');
+      rethrow;
+    }
+    final regularFont = pw.Font.ttf(regularData);
+    final boldFont = pw.Font.ttf(boldData);
+    final italicFont = pw.Font.ttf(italicData);
+    final boldItalicFont = pw.Font.ttf(boldItalicData);
+    final fallbackFont = pw.Font.ttf(fallbackData);
+
     final pdf = pw.Document(
       author: 'MD to PDF App',
       creator: 'MD to PDF',
@@ -29,6 +50,13 @@ class MarkdownConverter {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(40),
+        theme: pw.ThemeData.withFont(
+          base: regularFont,
+          bold: boldFont,
+          italic: italicFont,
+          boldItalic: boldItalicFont,
+          fontFallback: [fallbackFont, regularFont, boldFont],
+        ),
         build: (context) => _buildPdfWidgets(nodes, markdownContent),
       ),
     );

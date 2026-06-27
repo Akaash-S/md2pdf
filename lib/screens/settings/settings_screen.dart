@@ -5,7 +5,6 @@ import '../../core/security/auth_service.dart';
 import '../../core/security/secure_storage_service.dart';
 import '../../app.dart';
 
-final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
 final biometricEnabledProvider = StateProvider<bool>((ref) => true);
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -101,12 +100,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildSectionHeader('Appearance', Icons.palette_outlined, scheme),
           Card(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ListTile(
-                  leading: const Icon(Icons.brightness_6),
-                  title: const Text('Theme'),
-                  subtitle: Text(_themeModeName(themeMode)),
-                  trailing: SegmentedButton<ThemeMode>(
+                const ListTile(
+                  leading: Icon(Icons.brightness_6),
+                  title: Text('Theme'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: SegmentedButton<ThemeMode>(
                     segments: const [
                       ButtonSegment(value: ThemeMode.system, label: Text('System')),
                       ButtonSegment(value: ThemeMode.light, label: Text('Light')),
@@ -157,17 +159,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 24),
           _buildSectionHeader('About', Icons.info_outline, scheme),
-          Card(
+          const Card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const ListTile(
+                ListTile(
                   leading: Icon(Icons.info),
                   title: Text('MD to PDF'),
                   subtitle: Text('Version 1.0.0'),
                 ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                const ListTile(
+                Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
                   leading: Icon(Icons.description),
                   title: Text('Description'),
                   subtitle: Text(
@@ -201,11 +203,4 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  String _themeModeName(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.system: return 'System';
-      case ThemeMode.light: return 'Light';
-      case ThemeMode.dark: return 'Dark';
-    }
-  }
 }

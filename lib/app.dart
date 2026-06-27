@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +22,7 @@ class MdToPdfApp extends ConsumerStatefulWidget {
 
 class _MdToPdfAppState extends ConsumerState<MdToPdfApp>
     with WidgetsBindingObserver {
+  Timer? _lockTimer;
 
   @override
   void initState() {
@@ -32,6 +34,7 @@ class _MdToPdfAppState extends ConsumerState<MdToPdfApp>
 
   @override
   void dispose() {
+    _lockTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -45,9 +48,15 @@ class _MdToPdfAppState extends ConsumerState<MdToPdfApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused) {
+      _lockTimer = Timer(const Duration(seconds: 15), () {
+        ref.read(isAuthenticatedProvider.notifier).state = false;
+      });
+    } else if (state == AppLifecycleState.resumed) {
+      _lockTimer?.cancel();
+      _lockTimer = null;
+    } else if (state == AppLifecycleState.detached) {
+      _lockTimer?.cancel();
       ref.read(isAuthenticatedProvider.notifier).state = false;
     }
   }
