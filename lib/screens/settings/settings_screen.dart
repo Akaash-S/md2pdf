@@ -32,6 +32,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final biometricEnabled = prefs.getBool('biometric_enabled') ?? true;
     final bioAvailable = await _authService.isBiometricAvailable();
 
+    if (!mounted) return;
     ref.read(themeModeProvider.notifier).state = ThemeMode.values[themeIndex];
     ref.read(biometricEnabledProvider.notifier).state = biometricEnabled;
 
@@ -41,12 +42,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _setThemeMode(ThemeMode mode) async {
     ref.read(themeModeProvider.notifier).state = mode;
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     await prefs.setInt('theme_mode', mode.index);
   }
 
   Future<void> _setBiometricEnabled(bool enabled) async {
     ref.read(biometricEnabledProvider.notifier).state = enabled;
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     await prefs.setBool('biometric_enabled', enabled);
   }
 
@@ -71,6 +74,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirm == true) {
       await _authService.clearAll();
       await _storage.clearHistory();
+      if (!mounted) return;
       ref.read(isFirstLaunchProvider.notifier).state = true;
       ref.read(isAuthenticatedProvider.notifier).state = false;
     }
@@ -78,6 +82,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _changePin() async {
     await _authService.clearAll();
+    if (!mounted) return;
     ref.read(isFirstLaunchProvider.notifier).state = true;
     ref.read(isAuthenticatedProvider.notifier).state = false;
   }

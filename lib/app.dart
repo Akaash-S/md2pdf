@@ -38,6 +38,7 @@ class _MdToPdfAppState extends ConsumerState<MdToPdfApp>
 
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final themeIndex = prefs.getInt('theme_mode') ?? 0;
     ref.read(themeModeProvider.notifier).state = ThemeMode.values[themeIndex];
   }
@@ -54,6 +55,7 @@ class _MdToPdfAppState extends ConsumerState<MdToPdfApp>
   Future<void> _checkFirstLaunch() async {
     final authService = AuthService();
     final hasPin = await authService.hasPin();
+    if (!mounted) return;
     ref.read(isFirstLaunchProvider.notifier).state = !hasPin;
   }
 

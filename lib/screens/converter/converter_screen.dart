@@ -32,8 +32,8 @@ class _ConverterScreenState extends State<ConverterScreen> {
       allowMultiple: false,
     );
 
-    if (result != null && result.files.single.path != null) {
-      setState(() {
+    if (result != null && result.files.isNotEmpty && result.files.single.path != null) {
+      _safeSetState(() {
         _selectedMdPath = result.files.single.path;
         _selectedFileName = result.files.single.name;
         _statusText = '';
@@ -105,13 +105,19 @@ class _ConverterScreenState extends State<ConverterScreen> {
     }
   }
 
+  void _safeSetState(VoidCallback fn) {
+    if (mounted) try { setState(fn); } catch (_) {}
+  }
+
   Future<void> _animateProgress(double target, String text) async {
-    setState(() => _statusText = text);
+    _safeSetState(() => _statusText = text);
     while (_progress < target) {
       await Future.delayed(const Duration(milliseconds: 30));
-      if (mounted) setState(() => _progress += 0.02);
+      _safeSetState(() {
+        if (_progress < target) _progress += 0.02;
+      });
     }
-    if (mounted) setState(() => _progress = target);
+    _safeSetState(() => _progress = target);
   }
 
   @override

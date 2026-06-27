@@ -27,6 +27,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   Future<void> _init() async {
     final biometricAvailable = await _authService.isBiometricAvailable();
     final lockout = await _authService.getLockoutRemaining();
+    if (!mounted) return;
     setState(() {
       _biometricAvailable = biometricAvailable;
       _lockoutRemaining = lockout;
@@ -59,7 +60,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   }
 
   Future<void> _verifyPin() async {
+    if (!mounted) return;
     final lockout = await _authService.getLockoutRemaining();
+    if (!mounted) return;
     if (lockout != null) {
       setState(() {
         _lockoutRemaining = lockout;
@@ -71,10 +74,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     }
 
     final success = await _authService.verifyPin(_pin);
-    if (success && mounted) {
+    if (!mounted) return;
+    if (success) {
       ref.read(isAuthenticatedProvider.notifier).state = true;
     } else {
       final attempts = await _authService.getFailedAttempts();
+      if (!mounted) return;
       final remaining = AuthService.maxAttempts - attempts;
       setState(() {
         _pin = '';

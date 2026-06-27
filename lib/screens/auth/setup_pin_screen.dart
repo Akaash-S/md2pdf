@@ -25,7 +25,7 @@ class _SetupPinScreenState extends ConsumerState<SetupPinScreen> {
         _pin += digit;
         if (_pin.length == 6) {
           Future.delayed(const Duration(milliseconds: 300), () {
-            setState(() => _isConfirming = true);
+            if (mounted) setState(() => _isConfirming = true);
           });
         }
       } else if (_isConfirming && _confirmPin.length < 6) {
@@ -55,6 +55,7 @@ class _SetupPinScreenState extends ConsumerState<SetupPinScreen> {
       });
       return;
     }
+    if (!mounted) return;
     await _authService.savePin(_pin);
     ref.read(isFirstLaunchProvider.notifier).state = false;
     ref.read(isAuthenticatedProvider.notifier).state = true;

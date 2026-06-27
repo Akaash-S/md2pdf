@@ -132,8 +132,10 @@ class HomeScreen extends ConsumerWidget {
       context,
       MaterialPageRoute(builder: (_) => const ConverterScreen()),
     );
-    if (result != null) {
-      ref.read(historyProvider.notifier).add(result);
+    if (result != null && context.mounted) {
+      try {
+        ref.read(historyProvider.notifier).add(result);
+      } catch (_) {}
     }
   }
 
@@ -172,9 +174,11 @@ class HomeScreen extends ConsumerWidget {
         text: '${file.fileName}.pdf',
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Share failed: $e')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Share failed: $e')),
+        );
+      }
     }
   }
 
@@ -195,6 +199,10 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (confirm == true) ref.read(historyProvider.notifier).clear();
+    if (confirm == true && context.mounted) {
+      try {
+        ref.read(historyProvider.notifier).clear();
+      } catch (_) {}
+    }
   }
 }
