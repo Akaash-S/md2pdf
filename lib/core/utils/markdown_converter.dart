@@ -110,7 +110,7 @@ class MarkdownConverter {
 
   pw.Widget Function(pw.Context) _header(String mdFilePath) =>
       (ctx) => pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
+            margin: const pw.EdgeInsets.only(bottom: 8),
             padding: const pw.EdgeInsets.only(bottom: 6),
             decoration: const pw.BoxDecoration(
               border: pw.Border(
@@ -141,7 +141,7 @@ class MarkdownConverter {
             break;
           case 'p':
             widgets.add(_buildParagraph(node, baseFontSize));
-            widgets.add(pw.SizedBox(height: 6));
+            widgets.add(pw.SizedBox(height: 4));
             break;
           case 'ul':
             widgets.addAll(_buildList(node, ordered: false, base: baseFontSize));
@@ -183,15 +183,15 @@ class MarkdownConverter {
       color: colors[level] ?? PdfColors.black,
     );
     return pw.Padding(
-      padding: pw.EdgeInsets.only(top: level <= 2 ? 16 : 10, bottom: 6),
+      padding: pw.EdgeInsets.only(top: level <= 2 ? 10 : 6, bottom: 4),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           _buildInlineWidget(elem.children ?? [], style),
           if (level <= 2)
             pw.Container(
-              height: 2, color: colors[level] ?? PdfColors.grey,
-              margin: const pw.EdgeInsets.only(top: 4),
+              height: 1.5, color: colors[level] ?? PdfColors.grey,
+              margin: const pw.EdgeInsets.only(top: 2),
             ),
         ],
       ),
@@ -199,7 +199,7 @@ class MarkdownConverter {
   }
 
   pw.Widget _buildParagraph(md.Element elem, double base) {
-    final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.25);
+    final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.15);
     return _buildInlineWidget(elem.children ?? [], style);
   }
 
@@ -216,13 +216,13 @@ class MarkdownConverter {
   }
 
   pw.Widget _buildListItem(md.Element li, String prefix, bool ordered, double base) {
-    final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.25);
+    final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.15);
     List<md.Node> content = [];
     for (final child in li.children ?? []) {
       if (child is md.Element && child.tag == 'p') {
         content = child.children ?? [];
         return pw.Padding(
-          padding: pw.EdgeInsets.only(left: 16, bottom: 4),
+          padding: pw.EdgeInsets.only(left: 12, bottom: 2),
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -234,7 +234,7 @@ class MarkdownConverter {
       }
     }
     return pw.Padding(
-      padding: pw.EdgeInsets.only(left: 16, bottom: 4),
+      padding: pw.EdgeInsets.only(left: 12, bottom: 2),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
@@ -250,8 +250,8 @@ class MarkdownConverter {
       fontSize: base, fontStyle: pw.FontStyle.italic, color: PdfColors.grey700,
     );
     return pw.Container(
-      margin: pw.EdgeInsets.symmetric(vertical: 6),
-      padding: const pw.EdgeInsets.all(10),
+      margin: pw.EdgeInsets.symmetric(vertical: 4),
+      padding: const pw.EdgeInsets.all(8),
       decoration: const pw.BoxDecoration(
         border: pw.Border(
           left: pw.BorderSide(color: PdfColors.deepPurple300, width: 4),
@@ -265,8 +265,8 @@ class MarkdownConverter {
   pw.Widget _buildCodeBlock(md.Element elem, double base) {
     final text = _textContent(elem.children ?? []);
     return pw.Container(
-      margin: pw.EdgeInsets.symmetric(vertical: 8),
-      padding: const pw.EdgeInsets.all(12),
+      margin: pw.EdgeInsets.symmetric(vertical: 6),
+      padding: const pw.EdgeInsets.all(10),
       decoration: pw.BoxDecoration(
         color: PdfColors.grey100,
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -295,7 +295,7 @@ class MarkdownConverter {
       );
       rows.add(pw.TableRow(
         children: cells.map((c) => pw.Padding(
-          padding: const pw.EdgeInsets.all(6),
+          padding: const pw.EdgeInsets.all(4),
           child: _buildInlineWidget(c.children ?? [], cellStyle),
         )).toList(),
       ));
@@ -314,7 +314,7 @@ class MarkdownConverter {
     }
     if (rows.isEmpty) return pw.SizedBox();
     return pw.Container(
-      margin: pw.EdgeInsets.symmetric(vertical: 8),
+      margin: pw.EdgeInsets.symmetric(vertical: 4),
       child: pw.Table(
         border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
         children: rows,

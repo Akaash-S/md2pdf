@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app.dart';
 import '../home/home_screen.dart';
 import '../converter/converter_screen.dart';
 import '../settings/settings_screen.dart';
 
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({super.key});
-  @override
-  State<AppShell> createState() => _AppShellState();
-}
-
-class _AppShellState extends State<AppShell> {
-  int _index = 0;
 
   static const _screens = [
     HomeScreen(),
@@ -19,7 +15,9 @@ class _AppShellState extends State<AppShell> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tabIndex = ref.watch(appTabIndexProvider);
+
     return Scaffold(
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 260),
@@ -36,13 +34,14 @@ class _AppShellState extends State<AppShell> {
           ),
         ),
         child: KeyedSubtree(
-          key: ValueKey(_index),
-          child: _screens[_index],
+          key: ValueKey(tabIndex),
+          child: _screens[tabIndex],
         ),
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        selectedIndex: tabIndex,
+        onDestinationSelected: (i) =>
+            ref.read(appTabIndexProvider.notifier).state = i,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),

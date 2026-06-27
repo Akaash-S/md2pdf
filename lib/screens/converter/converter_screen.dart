@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
+import '../../app.dart';
 import '../../core/utils/markdown_converter.dart';
 import '../../models/converted_file.dart';
 import '../../providers/settings_provider.dart';
+import '../home/home_screen.dart';
 
 class ConverterScreen extends ConsumerStatefulWidget {
   const ConverterScreen({super.key});
@@ -93,7 +95,10 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
             ],
           ),
         );
-        if (action == 'share') {
+        if (action == 'view') {
+          ref.read(historyProvider.notifier).add(convertedFile);
+          ref.read(appTabIndexProvider.notifier).state = 0;
+        } else if (action == 'share') {
           try {
             await Share.shareXFiles(
               [XFile(pdfPath)],
@@ -101,7 +106,6 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
             );
           } catch (_) {}
         }
-        if (mounted) Navigator.pop(context, convertedFile);
       }
     } catch (e) {
       setState(() {

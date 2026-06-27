@@ -11,6 +11,7 @@ import 'screens/shell/app_shell.dart';
 
 final isAuthenticatedProvider = StateProvider<bool>((_) => false);
 final isFirstLaunchProvider = StateProvider<bool>((_) => true);
+final appTabIndexProvider = StateProvider<int>((_) => 0);
 
 class MdToPdfApp extends ConsumerStatefulWidget {
   const MdToPdfApp({super.key});
