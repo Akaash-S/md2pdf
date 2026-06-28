@@ -44,7 +44,7 @@ class AuthService {
     try {
       await Future.delayed(const Duration(milliseconds: 200));
       return await _localAuth.authenticate(
-        localizedReason: 'Authenticate to access MD to PDF',
+        localizedReason: 'Authenticate to access MD2PDF',
         options: const AuthenticationOptions(
           stickyAuth: false,
           biometricOnly: true,

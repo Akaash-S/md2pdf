@@ -56,9 +56,9 @@ class MarkdownConverter {
 
     final pdf = pw.Document(
       author: settings.pdfAuthorName.isEmpty
-          ? 'MD to PDF'
+          ? 'MD2PDF'
           : settings.pdfAuthorName,
-      creator: 'MD to PDF',
+      creator: 'MD2PDF',
       title: p.basenameWithoutExtension(mdFilePath),
     );
     pdf.addPage(
@@ -102,7 +102,7 @@ class MarkdownConverter {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  'MD to PDF',
+                  'MD2PDF',
                   style: pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
                 ),
                 pw.Text(

@@ -1,4 +1,4 @@
-package com.yourname.md_to_pdf
+package com.akaashs.md2pdf
 
 import android.os.Bundle
 import android.view.WindowManager
@@ -7,7 +7,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
-    private val CHANNEL = "md_to_pdf/screenshot"
+    private val CHANNEL = "md2pdf/screenshot"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

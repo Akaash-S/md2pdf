@@ -55,16 +55,12 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leadingWidth: 64,
-        leading: Container(
-          width: 44,
-          height: 44,
-          margin: const EdgeInsets.only(left: 12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
+            child: Image.asset('assets/md2pdf.png', width: 44, height: 44),
           ),
-          child: Icon(Icons.picture_as_pdf_rounded,
-              color: Theme.of(context).colorScheme.onPrimaryContainer, size: 28),
         ),
         title: const Text('Settings'),
       ),

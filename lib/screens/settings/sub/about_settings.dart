@@ -53,7 +53,7 @@ class _AboutSettingsState extends ConsumerState<AboutSettings> {
                         size: 44, color: scheme.onPrimaryContainer),
                   ),
                   const SizedBox(height: 16),
-                  const Text('MD to PDF',
+                  const Text('MD2PDF',
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
@@ -84,7 +84,7 @@ class _AboutSettingsState extends ConsumerState<AboutSettings> {
                 subtitle: 'Flutter and third-party packages',
                 onTap: () => showLicensePage(
                   context: context,
-                  applicationName: 'MD to PDF',
+                  applicationName: 'MD2PDF',
                   applicationVersion: _version,
                   applicationLegalese: '(c) 2025. Personal use only.',
                 ),

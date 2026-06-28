@@ -9,7 +9,7 @@ import Flutter
   ) -> Bool {
     let controller = window?.rootViewController as! FlutterViewController
     let channel = FlutterMethodChannel(
-      name: "md_to_pdf/screenshot",
+      name: "md2pdf/screenshot",
       binaryMessenger: controller.binaryMessenger
     )
     channel.setMethodCallHandler { (call, result) in

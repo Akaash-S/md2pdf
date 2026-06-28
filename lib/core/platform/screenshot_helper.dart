@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
 class ScreenshotHelper {
-  static const _channel = MethodChannel('md_to_pdf/screenshot');
+  static const _channel = MethodChannel('md2pdf/screenshot');
 
   static Future<void> setProtection(bool enabled) async {
     try {

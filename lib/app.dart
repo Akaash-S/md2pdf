@@ -109,7 +109,7 @@ class _MdToPdfAppState extends ConsumerState<MdToPdfApp>
         }
 
         return MaterialApp(
-          title: 'MD to PDF',
+          title: 'MD2PDF',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.fromScheme(lightScheme),
           darkTheme: AppTheme.fromScheme(darkScheme),
