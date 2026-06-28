@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:markdown/markdown.dart' as md;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -12,23 +11,6 @@ class MarkdownConverter {
   factory MarkdownConverter() => _instance;
   MarkdownConverter._internal();
 
-  pw.Font? _regular, _bold, _italic, _boldItalic, _mono;
-  bool _fontsLoaded = false;
-
-  Future<void> _ensureFonts() async {
-    if (_fontsLoaded) return;
-    final regularData = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
-    final boldData = await rootBundle.load('assets/fonts/NotoSans-Bold.ttf');
-    final italicData = await rootBundle.load('assets/fonts/NotoSans-Italic.ttf');
-    final boldItalicData = await rootBundle.load('assets/fonts/NotoSans-BoldItalic.ttf');
-    final monoData = await rootBundle.load('assets/fonts/NotoSansMono-Regular.ttf');
-    _regular = pw.Font.ttf(regularData);
-    _bold = pw.Font.ttf(boldData);
-    _italic = pw.Font.ttf(italicData);
-    _boldItalic = pw.Font.ttf(boldItalicData);
-    _mono = pw.Font.ttf(monoData);
-    _fontsLoaded = true;
-  }
 
   bool _nodeHasContent(md.Element elem) {
     final children = elem.children ?? [];
@@ -55,18 +37,18 @@ class MarkdownConverter {
       extensionSet: md.ExtensionSet.gitHubFlavored,
       encodeHtml: false,
     ).parseLines(normalized.split('\n'));
-    await _ensureFonts();
-
     final pageFormat = switch (settings.pageSize) {
       PdfPageSize.a4 => PdfPageFormat.a4,
       PdfPageSize.letter => PdfPageFormat.letter,
       PdfPageSize.a3 => PdfPageFormat.a3,
     };
 
-    final marginMm = settings.marginValue;
-    final margin = PdfPageFormat(
-      pageFormat.width, pageFormat.height,
-      marginAll: marginMm * PdfPageFormat.mm,
+    final marginValue = settings.marginValue * PdfPageFormat.mm;
+    final margin = pageFormat.copyWith(
+      marginLeft: marginValue,
+      marginTop: marginValue,
+      marginRight: marginValue,
+      marginBottom: marginValue,
     );
 
     final baseFontSize = 11.0 * settings.fontScaleValue;
@@ -82,20 +64,8 @@ class MarkdownConverter {
       pw.MultiPage(
         maxPages: 500,
         pageFormat: margin,
-        theme: pw.ThemeData.withFont(
-          base: _regular!,
-          bold: _bold!,
-          italic: _italic!,
-          boldItalic: _boldItalic!,
-          fontFallback: [_mono!, _regular!, _bold!],
-        ),
         header: settings.showHeader ? _header(mdFilePath) : null,
-        footer: settings.showFooter
-            ? (context) => pw.Padding(
-                  padding: const pw.EdgeInsets.only(top: 16),
-                  child: pw.Container(height: 2, color: PdfColors.black),
-                )
-            : null,
+        footer: settings.showFooter ? _footer() : null,
         build: (context) => _buildBlocks(ast, baseFontSize),
       ),
     );
@@ -110,21 +80,34 @@ class MarkdownConverter {
 
   pw.Widget Function(pw.Context) _header(String mdFilePath) =>
       (ctx) => pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 8),
-            padding: const pw.EdgeInsets.only(bottom: 6),
+            margin: const pw.EdgeInsets.only(bottom: 10),
             decoration: const pw.BoxDecoration(
               border: pw.Border(
-                  bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
+                  bottom: pw.BorderSide(color: PdfColors.grey400, width: 0.5)),
+            ),
+            height: 2,
+          );
+
+  pw.Widget Function(pw.Context) _footer() =>
+      (ctx) => pw.Container(
+            margin: const pw.EdgeInsets.only(top: 8),
+            padding: const pw.EdgeInsets.only(top: 6),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(
+                top: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
+              ),
             ),
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text(p.basenameWithoutExtension(mdFilePath),
-                    style: pw.TextStyle(
-                        fontSize: 9, color: PdfColors.grey600)),
-                pw.Text(DateTime.now().toString().substring(0, 10),
-                    style: pw.TextStyle(
-                        fontSize: 9, color: PdfColors.grey600)),
+                pw.Text(
+                  'MD to PDF',
+                  style: pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
+                ),
+                pw.Text(
+                  'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+                  style: pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
+                ),
               ],
             ),
           );
@@ -141,7 +124,7 @@ class MarkdownConverter {
             break;
           case 'p':
             widgets.add(_buildParagraph(node, baseFontSize));
-            widgets.add(pw.SizedBox(height: 4));
+            widgets.add(pw.SizedBox(height: 6));
             break;
           case 'ul':
             widgets.addAll(_buildList(node, ordered: false, base: baseFontSize));
@@ -183,7 +166,7 @@ class MarkdownConverter {
       color: colors[level] ?? PdfColors.black,
     );
     return pw.Padding(
-      padding: pw.EdgeInsets.only(top: level <= 2 ? 10 : 6, bottom: 4),
+      padding: pw.EdgeInsets.only(top: level <= 2 ? 14 : 10, bottom: 6),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
@@ -199,7 +182,7 @@ class MarkdownConverter {
   }
 
   pw.Widget _buildParagraph(md.Element elem, double base) {
-    final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.15);
+    final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.2);
     return _buildInlineWidget(elem.children ?? [], style);
   }
 
@@ -216,13 +199,13 @@ class MarkdownConverter {
   }
 
   pw.Widget _buildListItem(md.Element li, String prefix, bool ordered, double base) {
-    final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.15);
+    final style = pw.TextStyle(fontSize: base, lineSpacing: base * 0.2);
     List<md.Node> content = [];
     for (final child in li.children ?? []) {
       if (child is md.Element && child.tag == 'p') {
         content = child.children ?? [];
         return pw.Padding(
-          padding: pw.EdgeInsets.only(left: 12, bottom: 2),
+          padding: pw.EdgeInsets.only(left: 16, bottom: 4),
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -234,7 +217,7 @@ class MarkdownConverter {
       }
     }
     return pw.Padding(
-      padding: pw.EdgeInsets.only(left: 12, bottom: 2),
+      padding: pw.EdgeInsets.only(left: 16, bottom: 4),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
@@ -250,8 +233,8 @@ class MarkdownConverter {
       fontSize: base, fontStyle: pw.FontStyle.italic, color: PdfColors.grey700,
     );
     return pw.Container(
-      margin: pw.EdgeInsets.symmetric(vertical: 4),
-      padding: const pw.EdgeInsets.all(8),
+      margin: pw.EdgeInsets.symmetric(vertical: 6),
+      padding: const pw.EdgeInsets.all(10),
       decoration: const pw.BoxDecoration(
         border: pw.Border(
           left: pw.BorderSide(color: PdfColors.deepPurple300, width: 4),
@@ -265,15 +248,15 @@ class MarkdownConverter {
   pw.Widget _buildCodeBlock(md.Element elem, double base) {
     final text = _textContent(elem.children ?? []);
     return pw.Container(
-      margin: pw.EdgeInsets.symmetric(vertical: 6),
-      padding: const pw.EdgeInsets.all(10),
+      margin: pw.EdgeInsets.symmetric(vertical: 8),
+      padding: const pw.EdgeInsets.all(12),
       decoration: pw.BoxDecoration(
         color: PdfColors.grey100,
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
       ),
       child: pw.Text(
         text,
-        style: pw.TextStyle(fontSize: base * 0.85, font: _mono, lineSpacing: base * 0.25),
+        style: pw.TextStyle(fontSize: base * 0.85, font: pw.Font.courier(), lineSpacing: base * 0.25),
       ),
     );
   }
@@ -314,7 +297,7 @@ class MarkdownConverter {
     }
     if (rows.isEmpty) return pw.SizedBox();
     return pw.Container(
-      margin: pw.EdgeInsets.symmetric(vertical: 4),
+      margin: pw.EdgeInsets.symmetric(vertical: 6),
       child: pw.Table(
         border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
         children: rows,
@@ -352,7 +335,7 @@ class MarkdownConverter {
           case 'code':
             spans.add(pw.TextSpan(
               text: _textContent(node.children ?? []),
-              style: baseStyle.copyWith(font: _mono, fontSize: baseStyle.fontSize! * 0.9),
+              style: baseStyle.copyWith(font: pw.Font.courier(), fontSize: baseStyle.fontSize! * 0.9),
             ));
             break;
           case 'del':

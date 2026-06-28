@@ -27,7 +27,6 @@ class _MdToPdfAppState extends ConsumerState<MdToPdfApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _checkFirstLaunch();
   }
 
   @override
@@ -43,24 +42,23 @@ class _MdToPdfAppState extends ConsumerState<MdToPdfApp>
 
     if (state == AppLifecycleState.paused) {
       _backgroundedAt = DateTime.now();
-      if (lockDelay == Duration.zero) {
-        ref.read(isAuthenticatedProvider.notifier).state = false;
-      }
     }
 
     if (state == AppLifecycleState.resumed && _backgroundedAt != null) {
-      if (lockDelay == null) return;
       final elapsed = DateTime.now().difference(_backgroundedAt!);
-      if (elapsed >= lockDelay) {
+      _backgroundedAt = null;
+
+      if (lockDelay == null) return; // AutoLockDelay.never
+
+      // Grace period: never lock if app was backgrounded < 2 seconds
+      // This prevents biometric prompts from triggering auto-lock
+      const gracePeriod = Duration(seconds: 2);
+      if (elapsed < gracePeriod) return;
+
+      if (lockDelay == Duration.zero || elapsed >= lockDelay) {
         ref.read(isAuthenticatedProvider.notifier).state = false;
       }
-      _backgroundedAt = null;
     }
-  }
-
-  Future<void> _checkFirstLaunch() async {
-    final hasPin = await AuthService().hasPin();
-    ref.read(isFirstLaunchProvider.notifier).state = !hasPin;
   }
 
   @override

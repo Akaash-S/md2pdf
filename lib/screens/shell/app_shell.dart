@@ -8,10 +8,10 @@ import '../settings/settings_screen.dart';
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
 
-  static const _screens = [
-    HomeScreen(),
-    ConverterScreen(),
-    SettingsScreen(),
+  static final _screens = [
+    const HomeScreen(),
+    const ConverterScreen(),
+    const SettingsScreen(),
   ];
 
   @override

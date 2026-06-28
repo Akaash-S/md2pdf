@@ -54,7 +54,18 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        centerTitle: true,
+        leadingWidth: 64,
+        leading: Container(
+          width: 44,
+          height: 44,
+          margin: const EdgeInsets.only(left: 12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(Icons.picture_as_pdf_rounded,
+              color: Theme.of(context).colorScheme.onPrimaryContainer, size: 28),
+        ),
         title: const Text('Settings'),
       ),
       body: ListView.builder(

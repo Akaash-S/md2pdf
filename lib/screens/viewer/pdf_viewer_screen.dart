@@ -1,8 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../models/converted_file.dart';
 
 class PdfViewerScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class PdfViewerScreen extends StatefulWidget {
 }
 
 class _PdfViewerScreenState extends State<PdfViewerScreen> {
+  final PdfViewerController _controller = PdfViewerController();
   int _totalPages = 0;
   int _currentPage = 0;
   bool _isLoaded = false;
@@ -25,11 +27,6 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     });
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   void _toggleBars() {
@@ -56,6 +53,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: scheme.surface,
       appBar: _appBarsVisible
           ? AppBar(
               backgroundColor: Colors.black,
@@ -95,8 +93,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                       Icon(Icons.lock, size: 12, color: Colors.white),
                       SizedBox(width: 4),
                       Text('READ ONLY',
-                          style:
-                              TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -107,36 +107,32 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         onTap: _toggleBars,
         child: Stack(
           children: [
-            PDFView(
-              filePath: widget.file.pdfPath,
-              enableSwipe: true,
-              swipeHorizontal: false,
-              autoSpacing: false,
-              pageFling: true,
-              pageSnap: true,
-              fitEachPage: true,
-              fitPolicy: FitPolicy.WIDTH,
-              onRender: (pages) => setState(() {
-                _totalPages = pages ?? 0;
-                _isLoaded = true;
-              }),
-              onPageChanged: (page, total) => setState(() {
-                _currentPage = (page ?? 0) + 1;
-              }),
-              onViewCreated: (controller) {
-              },
-              onError: (error) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $error')),
-                );
-              },
+            Container(
+              color: scheme.surface,
+              child: SfPdfViewer.file(
+                File(widget.file.pdfPath),
+                controller: _controller,
+                pageSpacing: 8,
+                canShowScrollHead: false,
+                canShowScrollStatus: false,
+                canShowPaginationDialog: false,
+                onDocumentLoaded: (details) {
+                  setState(() {
+                    _totalPages = details.document.pages.count;
+                    _isLoaded = true;
+                  });
+                },
+                onPageChanged: (details) {
+                  setState(() {
+                    _currentPage = details.newPageNumber;
+                  });
+                },
+              ),
             ),
-
             if (!_isLoaded)
               Center(
                 child: CircularProgressIndicator(color: scheme.primary),
               ),
-
             if (_isLoaded && _appBarsVisible)
               Positioned(
                 bottom: 24,

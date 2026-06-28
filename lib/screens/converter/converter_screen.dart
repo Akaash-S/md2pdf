@@ -11,6 +11,7 @@ import '../../core/utils/markdown_converter.dart';
 import '../../models/converted_file.dart';
 import '../../providers/settings_provider.dart';
 import '../home/home_screen.dart';
+import '../viewer/pdf_viewer_screen.dart';
 
 class ConverterScreen extends ConsumerStatefulWidget {
   const ConverterScreen({super.key});
@@ -26,8 +27,10 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
   String? _selectedMdPath;
   String? _selectedFileName;
   bool _isConverting = false;
+  bool _isViewing = false;
   double _progress = 0;
   String _statusText = '';
+  ConvertedFile? _convertedFile;
 
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -41,6 +44,8 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
         _selectedMdPath = result.files.single.path;
         _selectedFileName = result.files.single.name;
         _statusText = '';
+        _convertedFile = null;
+        _isViewing = false;
       });
     }
   }
@@ -48,10 +53,13 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
   Future<void> _convert() async {
     if (_selectedMdPath == null) return;
 
+    if (!mounted) return;
     setState(() {
       _isConverting = true;
+      _isViewing = false;
       _progress = 0;
       _statusText = 'Reading markdown file...';
+      _convertedFile = null;
     });
 
     try {
@@ -77,37 +85,13 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
         fileSizeBytes: await pdfFile.length(),
       );
 
-      if (mounted) {
-        final action = await showDialog<String>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Conversion Complete'),
-            content: Text('${convertedFile.fileName}\n${convertedFile.formattedSize}'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, 'share'),
-                child: const Text('Share'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, 'view'),
-                child: const Text('View PDF'),
-              ),
-            ],
-          ),
-        );
-        if (action == 'view') {
-          ref.read(historyProvider.notifier).add(convertedFile);
-          ref.read(appTabIndexProvider.notifier).state = 0;
-        } else if (action == 'share') {
-          try {
-            await Share.shareXFiles(
-              [XFile(pdfPath)],
-              text: convertedFile.fileName,
-            );
-          } catch (_) {}
-        }
-      }
+      if (!mounted) return;
+      setState(() {
+        _isConverting = false;
+        _convertedFile = convertedFile;
+      });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isConverting = false;
         _statusText = 'Error: ${e.toString()}';
@@ -130,12 +114,62 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
     _safeSetState(() => _progress = target);
   }
 
+  Future<void> _onViewPdf() async {
+    if (_isViewing) return;
+    final file = _convertedFile;
+    if (file == null) return;
+    _isViewing = true;
+
+    // Save to history first
+    await ref.read(historyProvider.notifier).add(file);
+    if (!mounted) return;
+
+    // Navigate directly to the PDF viewer — no pop needed
+    // ConverterScreen is a tab, not a pushed route
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PdfViewerScreen(file: file),
+      ),
+    );
+
+    if (!mounted) return;
+    _isViewing = false;
+
+    // After viewer closes, switch bottom nav to History tab
+    ref.read(appTabIndexProvider.notifier).state = 0;
+  }
+
+  Future<void> _onSharePdf() async {
+    final file = _convertedFile;
+    if (file == null) return;
+    try {
+      await Share.shareXFiles(
+        [XFile(file.pdfPath)],
+        text: file.fileName,
+      );
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Convert Markdown')),
+      appBar: AppBar(
+        leadingWidth: 64,
+        leading: Container(
+          width: 44,
+          height: 44,
+          margin: const EdgeInsets.only(left: 12),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(Icons.picture_as_pdf_rounded,
+              color: scheme.onPrimaryContainer, size: 28),
+        ),
+        title: const Text('Convert Markdown'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -154,7 +188,7 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
 
             SizedBox(height: _statusText.startsWith('Error:') ? 8 : 16),
 
-            if (_selectedMdPath != null && !_isConverting) ...[
+            if (_selectedMdPath != null && !_isConverting && _convertedFile == null) ...[
               _buildFilePreview(),
               const SizedBox(height: 32),
               ElevatedButton.icon(
@@ -166,6 +200,14 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
 
             if (_isConverting) ...[
               _buildProgressSection(scheme),
+            ],
+
+            if (_convertedFile != null && !_isConverting) ...[
+              _SuccessCard(
+                file: _convertedFile!,
+                onView: _onViewPdf,
+                onShare: _onSharePdf,
+              ).animate().fadeIn().scale(),
             ],
           ],
         ),
@@ -253,6 +295,7 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
             onPressed: () => setState(() {
               _selectedMdPath = null;
               _selectedFileName = null;
+              _convertedFile = null;
             }),
           ),
         ],
@@ -280,5 +323,70 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
             style: const TextStyle(color: Colors.grey)),
       ],
     ).animate().fadeIn();
+  }
+}
+
+class _SuccessCard extends StatelessWidget {
+  final ConvertedFile file;
+  final Future<void> Function() onView;
+  final VoidCallback onShare;
+
+  const _SuccessCard({
+    required this.file,
+    required this.onView,
+    required this.onShare,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.primary.withValues(alpha: 0.3)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green.shade600, size: 56),
+            const SizedBox(height: 12),
+            Text('Conversion Complete',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: scheme.onSurface)),
+            const SizedBox(height: 6),
+            Text(
+              '${file.fileName} \u2022 ${file.formattedSize}',
+              style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onShare,
+                    icon: const Icon(Icons.share, size: 18),
+                    label: const Text('Share'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: onView,
+                    icon: const Icon(Icons.visibility, size: 18),
+                    label: const Text('View PDF'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
