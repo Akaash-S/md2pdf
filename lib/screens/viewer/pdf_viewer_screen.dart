@@ -58,6 +58,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           ? AppBar(
               backgroundColor: Colors.black,
               iconTheme: const IconThemeData(color: Colors.white),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                onPressed: () { Navigator.of(context).pop(); },
+                tooltip: 'Back',
+              ),
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

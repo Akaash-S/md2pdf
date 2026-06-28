@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../../models/app_settings.dart';
+import 'text_sanitizer.dart';
 
 class MarkdownConverter {
   static final MarkdownConverter _instance = MarkdownConverter._internal();
@@ -191,7 +192,7 @@ class MarkdownConverter {
     int counter = 1;
     for (final child in elem.children ?? []) {
       if (child is md.Element && child.tag == 'li') {
-        widgets.add(_buildListItem(child, ordered ? '$counter. ' : '\u2022 ', ordered, base));
+        widgets.add(_buildListItem(child, ordered ? '$counter. ' : '* ', ordered, base));
         counter++;
       }
     }
@@ -320,7 +321,7 @@ class MarkdownConverter {
     for (final node in nodes) {
       if (node is md.Text) {
         if (node.text.isNotEmpty) {
-          spans.add(pw.TextSpan(text: node.text, style: baseStyle));
+          spans.add(pw.TextSpan(text: TextSanitizer.sanitize(node.text), style: baseStyle));
         }
       } else if (node is md.Element) {
         switch (node.tag) {
@@ -367,7 +368,7 @@ class MarkdownConverter {
       if (node is md.Text) buf.write(node.text);
       else if (node is md.Element) buf.write(_textContent(node.children ?? []));
     }
-    return buf.toString();
+    return TextSanitizer.sanitize(buf.toString());
   }
 
   Future<String> _getOutputDirectory([String? customPath]) async {
