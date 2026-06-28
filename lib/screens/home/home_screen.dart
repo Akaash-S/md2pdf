@@ -5,7 +5,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/security/secure_storage_service.dart';
 import '../../models/converted_file.dart';
-import '../converter/converter_screen.dart';
 import '../viewer/pdf_viewer_screen.dart';
 import '../../widgets/file_card.dart';
 import '../../app.dart';
@@ -86,11 +85,6 @@ class HomeScreen extends ConsumerWidget {
       body: history.isEmpty
           ? _buildEmpty(context)
           : _buildHistory(context, ref, history),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openConverter(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('Convert MD'),
-      ),
     );
   }
 
@@ -137,18 +131,6 @@ class HomeScreen extends ConsumerWidget {
         ).animate().fadeIn(delay: (i * 50).ms).slideY(begin: 0.1);
       },
     );
-  }
-
-  Future<void> _openConverter(BuildContext context, WidgetRef ref) async {
-    final result = await Navigator.push<ConvertedFile>(
-      context,
-      MaterialPageRoute(builder: (_) => const ConverterScreen()),
-    );
-    if (result != null && context.mounted) {
-      try {
-        ref.read(historyProvider.notifier).add(result);
-      } catch (_) {}
-    }
   }
 
   void _openViewer(BuildContext context, ConvertedFile file) {
