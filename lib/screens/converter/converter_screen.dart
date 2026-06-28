@@ -121,7 +121,11 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
     _isViewing = true;
 
     // Save to history first
-    await ref.read(historyProvider.notifier).add(file);
+    try {
+      await ref.read(historyProvider.notifier).add(file);
+    } catch (_) {
+      // History save failure should not block viewing the PDF
+    }
     if (!mounted) return;
 
     // Navigate directly to the PDF viewer — no pop needed
@@ -135,8 +139,9 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
     if (!mounted) return;
     _isViewing = false;
 
-    // After viewer closes, switch bottom nav to History tab
-    ref.read(appTabIndexProvider.notifier).state = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(appTabIndexProvider.notifier).state = 0;
+    });
   }
 
   Future<void> _onSharePdf() async {
